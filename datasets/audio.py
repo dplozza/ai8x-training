@@ -60,6 +60,11 @@ def audio_get_datasets(data, load_train=True, load_test=True):
         x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
         y_test = (y_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
 
+
+    #IDENTITY MAPPING EXPERIMENT!
+    y_train = x_train.copy()
+    y_test = x_test.copy()
+
     #sample_size = x_train.size(2)
     #EXPERIMENTAL: pre reduce y size (loss  = error_to_signal(y[:, :, -y_pred.size(2) :], y_pred).mean())
     pred_size = out_sample_size#sample_size-4
