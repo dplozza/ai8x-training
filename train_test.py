@@ -355,7 +355,7 @@ def main():
         else:
             criterion = nn.CrossEntropyLoss().to(args.device)
     else:
-        criterion = lambda y, y_pred: (y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)
+        criterion = lambda y, y_pred: ((y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)).mean()
         #criterion = nn.MSELoss().to(args.device)
 
     if optimizer is None:
