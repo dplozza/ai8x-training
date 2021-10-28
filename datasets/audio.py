@@ -8,6 +8,7 @@ from torch.utils.data import TensorDataset
 import pickle
 
 sample_size = 4410 #HAS to be the same as x_train.size(2)
+out_sample_size = 2362
 
 # class normalize:
 #     def __init__(self, args):
@@ -61,7 +62,7 @@ def audio_get_datasets(data, load_train=True, load_test=True):
 
     #sample_size = x_train.size(2)
     #EXPERIMENTAL: pre reduce y size (loss  = error_to_signal(y[:, :, -y_pred.size(2) :], y_pred).mean())
-    pred_size = sample_size-4
+    pred_size = out_sample_size#sample_size-4
     y_train = y_train[:,:,-pred_size:]
     y_test = y_test[:,:,-pred_size:]
 
