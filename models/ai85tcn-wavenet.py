@@ -60,7 +60,7 @@ class AI85tcn(nn.Module):
         dilations = [2 ** d for d in range(dilation_depth)] * num_repeat
 
         #create dilated conv stack
-        self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size)
+        self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
 
         self.input_layer = ai8x.FusedConv1dReLU(
                 in_channels=num_channels,#input channels
@@ -81,7 +81,8 @@ class AI85tcn(nn.Module):
             padding=0,
             dilation=1,
             bias=False,
-            wide=True, #32 bit output!
+            wide=False,
+            #wide=True, #32 bit output!
             **kwargs
         )
 
