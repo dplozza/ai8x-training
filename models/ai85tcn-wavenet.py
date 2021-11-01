@@ -81,7 +81,7 @@ class AI85tcn(nn.Module):
             padding=0,
             dilation=1,
             bias=False,
-            wide=False,
+            wide=True,
             #wide=True, #32 bit output!
             **kwargs
         )
