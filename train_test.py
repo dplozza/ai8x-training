@@ -71,6 +71,7 @@ import traceback
 from collections import OrderedDict
 from functools import partial
 from pydoc import locate
+import json
 
 import numpy as np
 
@@ -201,6 +202,24 @@ def main():
     # to refer to past experiment executions and this information may be useful.
     apputils.log_execution_env_state(args.compress, msglogger.logdir)
     msglogger.debug("Distiller: %s", distiller.__version__)
+
+    # store args
+    def is_jsonable(x):
+        try:
+            json.dumps(x)
+            return True
+        except:
+            return False
+    args_dict = args.__dict__
+    keys_to_delete = []
+    for key,value in args_dict.items():
+        if not is_jsonable(value):
+            keys_to_delete.append(key)
+    for key in keys_to_delete:
+        args_dict[key] = str(args_dict[key])
+    with open(msglogger.logdir + '/configs/commandline_args.txt', 'w') as f:
+        json.dump(args_dict, f, indent=2)
+
 
     start_epoch = 0
     ending_epoch = args.epochs
