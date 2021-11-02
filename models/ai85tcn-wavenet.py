@@ -52,7 +52,7 @@ class AI85tcn(nn.Module):
         # Limits
         #assert planes + num_channels <= ai8x.dev.WEIGHT_INPUTS
         
-        bias=True
+        #bias=True #get bias from parameters
 
         dilation=1
         #num_hidden_channels = 64
