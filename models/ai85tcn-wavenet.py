@@ -52,7 +52,8 @@ class AI85tcn(nn.Module):
         # Limits
         #assert planes + num_channels <= ai8x.dev.WEIGHT_INPUTS
         
-        bias=False
+        bias=True
+
         dilation=1
         #num_hidden_channels = 64
         self.num_channels = num_channels
@@ -80,7 +81,7 @@ class AI85tcn(nn.Module):
             stride=1,
             padding=0,
             dilation=1,
-            bias=False,
+            bias=False, #force no bias false for the last layer
             wide=True,
             #wide=True, #32 bit output!
             **kwargs
