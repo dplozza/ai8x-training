@@ -233,6 +233,9 @@ def get_parser(model_names, dataset_names):
     parser.add_argument('--sparsity-perf', action='store_true', default=False,
                         help='when determining best epoch, use sparsity as primary key')
 
+    parser.add_argument('--num-hidden-channels', type=int, default=12,
+                        help='number of channels of hidden layers')
+
     distiller.knowledge_distillation.add_distillation_args(parser, model_names, True)
     distiller.quantization.add_post_train_quant_args(parser)
     distiller.pruning.greedy_filter_pruning.add_greedy_pruner_args(parser)
