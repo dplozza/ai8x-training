@@ -58,12 +58,17 @@ class AI85tcn(nn.Module):
         #num_hidden_channels = 64
         self.num_channels = num_channels
 
+        if num_hidden_channels == 6:
+            raise Exception("SHIT")
+
         dilations = [2 ** d for d in range(dilation_depth)] * num_repeat
 
         #create dilated conv stack
         self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
 
-        self.input_layer = ai8x.FusedConv1dReLU(
+        #self.input_layer = ai8x.FusedConv1dReLU(
+        # for first layer NO nonlinearity: simply linar mix
+        self.input_layer = ai8x.Conv1d(
                 in_channels=num_channels,#input channels
                 out_channels=num_hidden_channels,
                 kernel_size=kernel_size,
@@ -71,7 +76,7 @@ class AI85tcn(nn.Module):
                 padding=0,
                 dilation=1,
                 bias=bias,
-                **kwargs
+                **kwargs 
             )
 
         self.linear_mix = ai8x.Conv1d(
@@ -96,10 +101,18 @@ class AI85tcn(nn.Module):
     def forward(self, x):  # pylint: disable=arguments-differ
         """Forward prop"""
 
+        self.outs = []
+
         out = self.input_layer(x)
+        self.outs.append(out)
 
         for hidden in self.hidden:
+            res = out
             out = hidden(out)
+
+            out = out + res[:, :, -out.size(2) :]
+
+            self.outs.append(out)
 
         out = self.linear_mix(out)
 
