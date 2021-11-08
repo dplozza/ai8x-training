@@ -58,9 +58,6 @@ class AI85tcn(nn.Module):
         #num_hidden_channels = 64
         self.num_channels = num_channels
 
-        if num_hidden_channels == 6:
-            raise Exception("SHIT")
-
         dilations = [2 ** d for d in range(dilation_depth)] * num_repeat
 
         #create dilated conv stack
