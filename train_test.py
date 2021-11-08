@@ -628,6 +628,7 @@ def create_model(supported_models, dimensions, args):
                       bias=args.use_bias,
                       weight_bits=weight_bits,
                       bias_bits=bias_bits,
+                      num_hidden_channels=args.num_hidden_channels,
                       quantize_activation=quantize_activation).to(args.device)
 
     return model
