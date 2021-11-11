@@ -1,2 +1,2 @@
-start_epoch: 1000
+start_epoch: 100000000
 weight_bits: 8
