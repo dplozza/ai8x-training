@@ -203,7 +203,7 @@ def main():
     apputils.log_execution_env_state(args.compress, msglogger.logdir)
     msglogger.debug("Distiller: %s", distiller.__version__)
 
-    # store args
+    # DMOD store args
     def is_jsonable(x):
         try:
             json.dumps(x)
@@ -269,6 +269,7 @@ def main():
         args.losses_exits = []
         args.exiterrors = []
 
+    # DCOM dataset selection (regression vs classification)
     selected_source = next((item for item in supported_sources if item['name'] == args.dataset))
     args.labels = selected_source['output']
     args.num_classes = len(args.labels)
@@ -366,7 +367,10 @@ def main():
                            'resetting epoch count to 0')
 
     # Define loss function (criterion)
-    if not args.regression:
+    # DMOD
+    if args.custom_loss: #custom loss uses loss from model (model.get_loss())
+        criterion = model.get_loss_criterion()
+    elif not args.regression:
         if 'weight' in selected_source:
             criterion = nn.CrossEntropyLoss(
                 torch.Tensor(selected_source['weight'])
@@ -374,8 +378,7 @@ def main():
         else:
             criterion = nn.CrossEntropyLoss().to(args.device)
     else:
-        criterion = lambda y, y_pred: ((y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)).mean()
-        #criterion = nn.MSELoss().to(args.device)
+        criterion = nn.MSELoss().to(args.device)
 
     if optimizer is None:
         optimizer = create_optimizer(model, args)
@@ -629,6 +632,7 @@ def create_model(supported_models, dimensions, args):
                       weight_bits=weight_bits,
                       bias_bits=bias_bits,
                       num_hidden_channels=args.num_hidden_channels,
+
                       quantize_activation=quantize_activation).to(args.device)
 
     return model

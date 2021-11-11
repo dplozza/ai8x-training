@@ -235,6 +235,12 @@ def get_parser(model_names, dataset_names):
 
     parser.add_argument('--num-hidden-channels', type=int, default=12,
                         help='number of channels of hidden layers')
+    parser.add_argument('--custom-loss', dest='custom_loss', default=False,
+                        action='store_true',
+                        help='Uses model.get_loss_criterion() as criterion')
+
+
+    parser.add_argument('--comment', type=str,default='Nothing')
 
     distiller.knowledge_distillation.add_distillation_args(parser, model_names, True)
     distiller.quantization.add_post_train_quant_args(parser)
