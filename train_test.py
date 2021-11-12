@@ -219,7 +219,7 @@ def main():
         args_dict[key] = str(args_dict[key])
     with open(msglogger.logdir + '/configs/commandline_args.txt', 'w') as f:
         json.dump(args_dict, f, indent=2)
-
+        
 
     start_epoch = 0
     ending_epoch = args.epochs
@@ -370,6 +370,7 @@ def main():
     # DMOD
     if args.custom_loss: #custom loss uses loss from model (model.get_loss())
         criterion = model.get_loss_criterion()
+        #criterion = lambda y, y_pred: ((y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)).mean()
     elif not args.regression:
         if 'weight' in selected_source:
             criterion = nn.CrossEntropyLoss(

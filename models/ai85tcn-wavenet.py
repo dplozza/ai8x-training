@@ -10,9 +10,24 @@
 Wavenet (TCN) network that fit into AI84
 
 """
+import torch
 import torch.nn as nn
 
 import ai8x
+
+
+def error_to_signal(y, y_pred):
+    """
+    Error to signal ratio with pre-emphasis filter:
+    https://www.mdpi.com/2076-3417/10/3/766/htm
+    """
+    y, y_pred = pre_emphasis_filter(y), pre_emphasis_filter(y_pred)
+    return (y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)
+
+
+def pre_emphasis_filter(x, coeff=0.95):
+    return torch.cat((x[:, :, 0:1], x[:, :, 1:] - coeff * x[:, :, :-1]), dim=2)
+
 
 def _conv_stack(dilations, in_channels, out_channels, kernel_size,bias=True,**kwargs):
     """
@@ -107,13 +122,21 @@ class AI85tcn(nn.Module):
             res = out
             out = hidden(out)
 
-            out = out + res[:, :, -out.size(2) :]
+            #out = out + res[:, :, -out.size(2) :]
 
             self.outs.append(out)
 
         out = self.linear_mix(out)
 
         return out
+
+    def get_loss_criterion(self):
+        """Creates and return custom loss function"""
+
+        criterion = lambda y, y_pred: error_to_signal(y,y_pred).mean()
+        #criterion = lambda y, y_pred: ((y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)).mean()
+        print("Using custom loss")
+        return criterion
 
 
 def ai85wavenet(pretrained=False, **kwargs):
