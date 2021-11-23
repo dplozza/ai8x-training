@@ -235,6 +235,13 @@ def get_parser(model_names, dataset_names):
 
     parser.add_argument('--num-hidden-channels', type=int, default=12,
                         help='number of channels of hidden layers')
+    parser.add_argument("--dilation-depth", type=int, default=10)
+    parser.add_argument("--dilation-power",type=int,default=2)
+    parser.add_argument("--num-repeat", type=int, default=1 )
+    parser.add_argument("--kernel-size", type=int, default=3)
+
+    parser.add_argument("--output-bitdepth",type=int, default=8)
+
     parser.add_argument('--custom-loss', dest='custom_loss', default=False,
                         action='store_true',
                         help='Uses model.get_loss_criterion() as criterion')
