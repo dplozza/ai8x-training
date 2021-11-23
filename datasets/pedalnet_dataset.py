@@ -1,6 +1,8 @@
 # Test dataset for audio filtering
 # input and output both audio files
 
+# Also uses WIDE representation for output layer! Which means uses full 32 bit
+
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset
@@ -25,6 +27,10 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     and the two bools specify whether training and/or test data should be loaded.
     
     The loader returns a tuple of two PyTorch Datasets for training and test data.
+
+
+    Uses wide output (up to 32 bit). Can define output bit "amplitude" to actually use.
+        args.output_bitdepth: 8 default, max 32
     """
 
     (data_dir, args) = data
@@ -47,18 +53,20 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     x_test = x_test/x_test.max()
     y_test = y_test/y_test.max()
     
+    out_range = 2**args.output_bitdepth #number of possible output values
+
     if args.act_mode_8bit:
         x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)
-        y_train = (y_train*0.5*256.).round().clip(min=-128, max=127)
+        y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1) # uses 24 bit to have some headroom
 
         x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)
-        y_test = (y_test*0.5*256.).round().clip(min=-128, max=127)
+        y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1) #24 bit
     else:
         x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)/(128.)
-        y_train = (y_train*0.5*256.).round().clip(min=-128, max=127)/(128.)
+        y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.) #24 bit
 
         x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
-        y_test = (y_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
+        y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.) #24 bit
 
 
     #IDENTITY MAPPING EXPERIMENT!
