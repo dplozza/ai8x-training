@@ -195,7 +195,9 @@ def main():
             print('WARNING: Initial learning rate (--lr) not set, selecting 0.1.')
         args.lr = 0.1
 
-    msglogger = apputils.config_pylogger(os.path.join(script_dir, 'logging.conf'), args.name,
+    if args.name==None:
+        args.name = args.comment
+    msglogger = config_pylogger(os.path.join(script_dir, 'logging.conf'), args.name,#apputils.config_pylogger(os.path.join(script_dir, 'logging.conf'), args.name,
                                          args.output_dir)
 
     # Log various details about the execution environment.  It is sometimes useful
@@ -239,6 +241,7 @@ def main():
         # https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/3
         cudnn.benchmark = True
 
+    # Set cuda or cpu
     if args.cpu or not torch.cuda.is_available():
         if not args.cpu:
             # Print warning if no hardware acceleration
@@ -586,6 +589,86 @@ def main():
     # Finally run results on the test set
     test(test_loader, model, criterion, [pylogger], activations_collectors, args=args)
     return None
+
+def apply_default_logger_cfg(log_filename):
+    d = {
+        'version': 1,
+        'formatters': {
+            'simple': {
+                'class': 'logging.Formatter',
+                'format': '%(asctime)s - %(message)s'
+            }
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'level': 'INFO',
+            },
+            'file': {
+                'class': 'logging.FileHandler',
+                'filename': log_filename,
+                'mode': 'w',
+                'formatter': 'simple',
+            },
+        },
+        'loggers': {
+            '': {  # root logger
+                'level': 'DEBUG',
+                'handlers': ['console', 'file'],
+                'propagate': False
+            },
+            'app_cfg': {
+                'level': 'DEBUG',
+                'handlers': ['file'],
+                'propagate': False
+            },
+        }
+    }
+
+
+def config_pylogger(log_cfg_file, experiment_name, output_dir='logs', verbose=False):
+    """MODIFIED from distiller: Configure the Python logger.
+
+    For each execution of the application, we'd like to create a unique log directory.
+    By default this directory is named using the date and time of day, so that directories
+    can be sorted by recency.  You can also name your experiments and prefix the log
+    directory with this name.  This can be useful when accessing experiment data from
+    TensorBoard, for example.
+    """
+    timestr = time.strftime("%Y.%m.%d-%H%M%S")
+    exp_full_name = timestr if experiment_name is None else timestr + '__' + experiment_name # WTF is this shit experiment_name + '___' + timestr
+    logdir = os.path.join(output_dir, exp_full_name)
+    if not os.path.exists(logdir):
+        os.makedirs(logdir)
+    log_filename = os.path.join(logdir, exp_full_name + '.log')
+    if os.path.isfile(log_cfg_file):
+        logging.config.fileConfig(log_cfg_file, defaults={'logfilename': log_filename})
+    else:
+        print("Could not find the logger configuration file (%s) - using default logger configuration" % log_cfg_file)
+        apply_default_logger_cfg(log_filename)
+    msglogger = logging.getLogger()
+    msglogger.logdir = logdir
+    msglogger.log_filename = log_filename
+    if verbose:
+        msglogger.setLevel(logging.DEBUG)
+    msglogger.info('Log file for this run: ' + os.path.realpath(log_filename))
+
+    # Create a symbollic link to the last log file created (for easier access)
+    try:
+        os.unlink("latest_log_file")
+    except FileNotFoundError:
+        pass
+    try:
+        os.unlink("latest_log_dir")
+    except FileNotFoundError:
+        pass
+    try:
+        os.symlink(logdir, "latest_log_dir")
+        os.symlink(log_filename, "latest_log_file")
+    except OSError:
+        msglogger.debug("Failed to create symlinks to latest logs")
+    return msglogger
+
 
 
 OVERALL_LOSS_KEY = 'Overall Loss'
