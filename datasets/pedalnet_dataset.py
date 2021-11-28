@@ -28,16 +28,26 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     
     The loader returns a tuple of two PyTorch Datasets for training and test data.
 
-
-    Uses wide output (up to 32 bit). Can define output bit "amplitude" to actually use.
+    Usage: (shitty documentation style, you're welcome mdm)
+    -Uses wide output (up to 32 bit). Can define output bit "amplitude" to actually use.
         args.output_bitdepth: 8 default, max 32
+    args.oversample: if 2 -> uses oversampled dataset (2x), default 1
     """
 
     (data_dir, args) = data
 
     #read data from pickle
     ds = lambda x, y: TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
-    data = pickle.load(open(data_dir + "/AUDIO/data.pickle", "rb"))  
+
+    if args.oversample == 1:
+        print("using oversampled data")
+        data_file = "/AUDIO/data_2os.pickle"
+    elif args.oversample == 2:
+        data_file = "/AUDIO/data.pickle"
+    else:
+        raise Exception("Sory bortha, invalid dataset oversampling option")
+    
+    data = pickle.load(open(data_dir + data_file, "rb"))  
 
     #concatenate train and validation, as in train.py the splitting happens again
     x_train = np.concatenate((data["x_train"],data["x_valid"]))

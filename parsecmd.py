@@ -240,7 +240,8 @@ def get_parser(model_names, dataset_names):
     parser.add_argument("--num-repeat", type=int, default=1 )
     parser.add_argument("--kernel-size", type=int, default=3)
 
-    parser.add_argument("--output-bitdepth",type=int, default=8)
+    parser.add_argument("--output-bitdepth",type=int, default=8,help='bidepth uses to quantize the output of regression')
+    parser.add_argument("--oversample",type=int,default=1,help='Only used for audio, oversampling of data (actually chooses which dataset to use)')
 
     parser.add_argument('--custom-loss', dest='custom_loss', default=False,
                         action='store_true',
