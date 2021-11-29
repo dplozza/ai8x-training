@@ -9,8 +9,8 @@ from torch.utils.data import TensorDataset
 
 import pickle
 
-sample_size = 4410 #HAS to be the same as x_train.size(2)
-out_sample_size = 2362
+sample_size = 8820 #HAS to be the same as x_train.size(2)
+out_sample_size = 6772
 
 # class normalize:
 #     def __init__(self, args):
@@ -21,7 +21,7 @@ out_sample_size = 2362
 #             return img.sub(0.5).mul(256.).round().clamp(min=-128, max=127)
 #         return img.sub(0.5).mul(256.).round().clamp(min=-128, max=127).div(128.)
 
-def pedalnet_get_datasets(data, load_train=True, load_test=True):
+def pedalnet_2xos_get_datasets(data, load_train=True, load_test=True):
     """
     data is a tuple of the specified data directory and the program arguments,
     and the two bools specify whether training and/or test data should be loaded.
@@ -39,15 +39,8 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     #read data from pickle
     ds = lambda x, y: TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
 
-    # if args.oversample == 2:
-    #     print("using oversampled data")
-    #     data_file = "/AUDIO/data_2xos.pickle"
-    # elif args.oversample == 1:
-    #     data_file = "/AUDIO/data.pickle"
-    # else:
-    #     raise Exception("Sory bortha, invalid dataset oversampling option")
     
-    data_file = "/AUDIO/data.pickle"
+    data_file = "/AUDIO/data_2xos.pickle"
     
     data = pickle.load(open(data_dir + data_file, "rb"))  
 
@@ -103,11 +96,11 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
 
 datasets = [
     {
-        'name': 'PEDALNET',
+        'name': 'PEDALNET_2XOS',
         'input': (1, sample_size), #1 channel and 1D
         #'output': list(map(str, range(10))), labels: only for NOT regression
         'output': [1], #WHY do I need to put this shit here...
-        'loader': pedalnet_get_datasets,
+        'loader': pedalnet_2xos_get_datasets,
         'regression': True 
     },
 ]
