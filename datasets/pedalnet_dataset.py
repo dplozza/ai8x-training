@@ -39,10 +39,10 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     #read data from pickle
     ds = lambda x, y: TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
 
-    if args.oversample == 1:
+    if args.oversample == 2:
         print("using oversampled data")
-        data_file = "/AUDIO/data_2os.pickle"
-    elif args.oversample == 2:
+        data_file = "/AUDIO/data_2xos.pickle"
+    elif args.oversample == 1:
         data_file = "/AUDIO/data.pickle"
     else:
         raise Exception("Sory bortha, invalid dataset oversampling option")
