@@ -1,6 +1,6 @@
 python train_test.py ^
-    --epochs 1 --deterministic --compress schedule-nothing.yaml ^
-    --model ai85reswavenet --dataset PEDALNET ^
+    --epochs 1 --deterministic --compress schedule.yaml ^
+    --model ai85reswavenet --dataset PEDALNET_2XOS ^
     --device MAX78000 ^
     --regression ^
     --custom-loss ^
