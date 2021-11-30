@@ -99,7 +99,7 @@ class AI85tcn(nn.Module):
             stride=1,
             padding=0,
             dilation=1,
-            bias=False, #force no bias false for the last layer
+            bias=bias, #force no bias false for the last layer
             wide=True,
             #wide=True, #32 bit output!
             **kwargs
@@ -108,7 +108,8 @@ class AI85tcn(nn.Module):
         #init weights
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                pass
+                #nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
 
 
     def forward(self, x):  # pylint: disable=arguments-differ
@@ -133,6 +134,8 @@ class AI85tcn(nn.Module):
             out = out + res[:, :, -out.size(2) :]
 
             self.outs.append(out)
+
+        #skips[-1] = out
 
         out = torch.cat([s[:, :, -out.size(2) :] for s in skips], dim=1)
         out = self.linear_mix(out)
