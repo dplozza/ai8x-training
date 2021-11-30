@@ -8,7 +8,7 @@ from torch.utils.data import TensorDataset
 import pickle
 
 sample_size = 4410 #HAS to be the same as x_train.size(2)
-out_sample_size = 2362
+out_sample_size = 4410 #this is overridden by loss function, this has to be big enough! (smaller is better for performance)
 
 # class normalize:
 #     def __init__(self, args):

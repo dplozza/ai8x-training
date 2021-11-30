@@ -10,7 +10,7 @@ from torch.utils.data import TensorDataset
 import pickle
 
 sample_size = 8820 #HAS to be the same as x_train.size(2)
-out_sample_size = 6772
+out_sample_size = 8820
 
 # class normalize:
 #     def __init__(self, args):

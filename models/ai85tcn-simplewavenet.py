@@ -8,7 +8,8 @@
 ###################################################################################################
 """
 Wavenet (TCN) network that fit into AI84
-Complete wavenet (with res and skip connections)
+SIMPLE wavenet (with NO res and NO skip connections)
+
 
 """
 import torch
@@ -22,7 +23,6 @@ def error_to_signal(y, y_pred):
     Error to signal ratio with pre-emphasis filter:
     https://www.mdpi.com/2076-3417/10/3/766/htm
     """
-
     y, y_pred = pre_emphasis_filter(y), pre_emphasis_filter(y_pred)
     return (y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)
 
@@ -65,6 +65,8 @@ class AI85tcn(nn.Module):
         """
         super().__init__()
 
+        #print("SHIIIT",kwargs)
+
         #num_classes HAVE TO LEAVE IT HERE
         # Limits
         #assert planes + num_channels <= ai8x.dev.WEIGHT_INPUTS
@@ -78,7 +80,8 @@ class AI85tcn(nn.Module):
 
         #create dilated conv stack
         self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
-        self.residuals = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, 1,bias=bias)
+        
+        #self.residuals = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, 1,bias=bias)
 
         #self.input_layer = ai8x.FusedConv1dReLU(
         # for first layer NO nonlinearity: simply linar mix
@@ -94,7 +97,7 @@ class AI85tcn(nn.Module):
             )
 
         self.linear_mix = ai8x.Conv1d(
-            in_channels=num_hidden_channels*dilation_depth*num_repeat, #no skips * dilation_depth * num_repeat,
+            in_channels=num_hidden_channels, #*dilation_depth*num_repeat, #no skips * dilation_depth * num_repeat,
             out_channels=1,
             kernel_size=1,
             stride=1,
@@ -110,6 +113,7 @@ class AI85tcn(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
                 pass
+                #m.weight.data[:,:,:] = torch.tensor(0)
                 #nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
 
 
@@ -123,22 +127,22 @@ class AI85tcn(nn.Module):
         out = self.input_layer(x)
         self.outs.append(out)
 
-        for hidden, residual in zip(self.hidden, self.residuals):
+        #for hidden, residual in zip(self.hidden, self.residuals):
+        for hidden  in  self.hidden:
             res = out
             out = hidden(out)
 
             
             skips.append(out) #append skip connections
 
-            out = residual(out)
+            #out = residual(out)
 
-            out = out + res[:, :, -out.size(2) :]
+            #out = out + res[:, :, -out.size(2) :]
 
             self.outs.append(out)
 
-        #skips[-1] = out
+        #out = torch.cat([s[:, :, -out.size(2) :] for s in skips], dim=1)
 
-        out = torch.cat([s[:, :, -out.size(2) :] for s in skips], dim=1)
         out = self.linear_mix(out)
 
         #change linear mix SIZE!!!
@@ -154,7 +158,7 @@ class AI85tcn(nn.Module):
         return criterion
 
 
-def ai85reswavenet(pretrained=False, **kwargs):
+def ai85simplewavenet(pretrained=False, **kwargs):
     """
     Constructs a AI85Net5 model.
     """
@@ -164,7 +168,7 @@ def ai85reswavenet(pretrained=False, **kwargs):
 
 models = [
     {
-        'name': 'ai85reswavenet',
+        'name': 'ai85simplewavenet',
         'min_input': 1, #only useful for 2D models....
         'dim': 1, #the model handles 1D input
     }

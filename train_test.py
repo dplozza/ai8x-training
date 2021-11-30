@@ -709,14 +709,20 @@ def create_model(supported_models, dimensions, args):
                       bias_bits=bias_bits,
                       quantize_activation=quantize_activation).to(args.device)
     else:
+        #modified specifically for reswavenet
         model = Model(pretrained=False, num_classes=args.num_classes,
                       num_channels=dimensions[0],
                       dimensions=(dimensions[1], dimensions[2]),
                       bias=args.use_bias,
                       weight_bits=weight_bits,
                       bias_bits=bias_bits,
-                      num_hidden_channels=args.num_hidden_channels,
 
+                      num_hidden_channels=args.num_hidden_channels,
+                      dilation_depth=args.dilation_depth,
+                      dilation_power=args.dilation_power,
+                      num_repeat=args.num_repeat,
+                      kernel_size=args.kernel_size,
+            
                       quantize_activation=quantize_activation).to(args.device)
 
     return model
@@ -844,7 +850,9 @@ def train(train_loader, model, criterion, optimizer, epoch,
                     classerr.add(output.data, target)
                 # CORRECTION
                 elif args.regression:
-                    classerr.add(output.data.flatten(), target.flatten())
+                    # CORRECTION pedalnet make shure data has same size
+                    target_chopped =  target[:, :, -output.data.size(2) :]
+                    classerr.add(output.data.flatten(), target_chopped.flatten())
                 else:
                     classerr.add(output.data.permute(0, 2, 3, 1).flatten(start_dim=0, end_dim=2),
                                  target.flatten())
@@ -1109,7 +1117,9 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
                     classerr.add(output.data, target)
                 # CORRECTION
                 elif args.regression:
-                    classerr.add(output.data.flatten(), target.flatten())
+                    # CORRECTION pedalnet make shure data has same size
+                    target_chopped =  target[:, :, -output.data.size(2) :]
+                    classerr.add(output.data.flatten(), target_chopped.flatten())
                 else:
                     classerr.add(output.data.permute(0, 2, 3, 1).flatten(start_dim=0, end_dim=2),
                                  target.flatten())
