@@ -109,7 +109,9 @@ class AI85tcn(nn.Module):
         #init weights
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
-                pass
+                if m.bias is not None:
+                    m.bias.data = m.bias.data/10.0
+
                 #nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
 
 
