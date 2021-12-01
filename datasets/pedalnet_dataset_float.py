@@ -40,12 +40,17 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     x_test = data["x_test"]
     y_test = data["y_test"]
 
-    #transform data between -1 and 1 or -128 and 127
-    x_train = x_train/x_train.max()
-    y_train = y_train/y_train.max()
+    #Normalization: normalize the whole data the same way, so that dynamic range is fully used 
+    #both in and output uses range -1 to +1
+    x_complete = np.concatenate((data["x_train"],data["x_valid"],data["x_test"]))
+    y_complete= np.concatenate((data["y_train"],data["y_valid"],data["y_test"]))
 
-    x_test = x_test/x_test.max()
-    y_test = y_test/y_test.max()
+    #transform data between -1 and 1 or -128 and 127
+    x_train = x_train/x_complete.max()
+    y_train = y_train/y_complete.max()
+
+    x_test = x_test/x_complete.max()
+    y_test = y_test/y_complete.max()
     
     if args.act_mode_8bit:
         x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)
@@ -63,10 +68,6 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
         pass
 
 
-    #IDENTITY MAPPING EXPERIMENT!
-    #y_train = x_train.copy()
-    #y_test = x_test.copy()
-
     #sample_size = x_train.size(2)
     #EXPERIMENTAL: pre reduce y size (loss  = error_to_signal(y[:, :, -y_pred.size(2) :], y_pred).mean())
     pred_size = out_sample_size#sample_size-4
@@ -79,7 +80,6 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     #train_ds = ds(data["x_train"], data["y_train"])
     #valid_ds = ds(data["x_valid"], data["y_valid"])
     #test_ds = ds(data["x_test"], data["y_test"])
-
 
     return train_ds,test_ds
 

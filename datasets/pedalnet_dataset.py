@@ -59,32 +59,46 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     x_test = data["x_test"]
     y_test = data["y_test"]
 
-    #transform data between -1 and 1 or -128 and 127
-    x_train = x_train/x_train.max()
-    y_train = y_train/y_train.max()
+    #Normalization: normalize the whole data the same way, so that dynamic range is fully used 
+    #both in and output uses range -1 to +1
+    x_complete = np.concatenate((data["x_train"],data["x_valid"],data["x_test"]))
+    y_complete= np.concatenate((data["y_train"],data["y_valid"],data["y_test"]))
 
-    x_test = x_test/x_test.max()
-    y_test = y_test/y_test.max()
+    #transform data between -1 and 1 or -128 and 127
+    x_train = x_train/x_complete.max()
+    y_train = y_train/y_complete.max()
+
+    x_test = x_test/x_complete.max()
+    y_test = y_test/y_complete.max()
     
     out_range = 2**args.output_bitdepth #number of possible output values
 
+    #new change: do NOT quantize reference values if not specified by quantize_target
     if args.act_mode_8bit:
         x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)
-        y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1) # uses 24 bit to have some headroom
+        if args.quantize_target:
+            y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1) # uses 24 bit to have some headroom
+        else:
+            y_train = (y_train*0.5*out_range) #.round().clip(min=-out_range//2, max=out_range//2-1) # uses 24 bit to have some headroom
 
         x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)
-        y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1) #24 bit
+        if args.quantize_target:
+            y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)
+        else:
+            y_test = (y_test*0.5*out_range)
     else:
         x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)/(128.)
-        y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.) #24 bit
+        if args.quantize_target:
+            y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.)
+        else:
+            y_train = (y_train*0.5*out_range)/(128.)
 
         x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
-        y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.) #24 bit
+        if args.quantize_target:
+            y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.)
+        else:
+            y_test = (y_test*0.5*out_range)/(128.)
 
-
-    #IDENTITY MAPPING EXPERIMENT!
-    #y_train = x_train.copy()
-    #y_test = x_test.copy()
 
     #sample_size = x_train.size(2)
     #EXPERIMENTAL: pre reduce y size (loss  = error_to_signal(y[:, :, -y_pred.size(2) :], y_pred).mean())
