@@ -69,17 +69,18 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
         else:
             y_test = (y_test*0.5*out_range)
     else:
-        x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)/(128.)
-        if args.quantize_target:
-            y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.)
-        else:
-            y_train = (y_train*0.5*out_range)/(128.)
+        # x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)/(128.)
+        # if args.quantize_target:
+        #     y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.)
+        # else:
+        #     y_train = (y_train*0.5*out_range)/(128.)
 
-        x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
-        if args.quantize_target:
-            y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.)
-        else:
-            y_test = (y_test*0.5*out_range)/(128.)
+        # x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
+        # if args.quantize_target:
+        #     y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.)
+        # else:
+        #     y_test = (y_test*0.5*out_range)/(128.)
+        pass
 
 
     #sample_size = x_train.size(2)
@@ -100,7 +101,7 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
 
 datasets = [
     {
-        'name': 'PEDALNET_15XOS',
+        'name': 'PEDALNET_15XOS_FLOAT',
         'input': (1, sample_size), #1 channel and 1D
         #'output': list(map(str, range(10))), labels: only for NOT regression
         'output': [1], #WHY do I need to put this shit here...
