@@ -372,7 +372,7 @@ def main():
     # Define loss function (criterion)
     # DMOD
     if args.custom_loss: #custom loss uses loss from model (model.get_loss())
-        criterion = model.get_loss_criterion()
+        criterion = model.get_loss_criterion(args.pre_filter_coeff)
         #criterion = lambda y, y_pred: ((y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)).mean()
     elif not args.regression:
         if 'weight' in selected_source:
@@ -841,6 +841,8 @@ def train(train_loader, model, criterion, optimizer, epoch,
 
         if not args.earlyexit_lossweights:
             loss = criterion(output, target)
+            print("Loss:",loss)
+            
             # Measure accuracy if the conditions are set. For `Last Batch` only accuracy
             # calculateion last two batches are used as the last batch might include just a few
             # samples.
@@ -944,6 +946,11 @@ def train(train_loader, model, criterion, optimizer, epoch,
             stats_dict['LR'] = optimizer.param_groups[0]['lr']
             stats_dict['Time'] = batch_time.mean
             stats = ('Performance/Training/', stats_dict)
+
+            #DEBUG
+            #print(stats_dict[OBJECTIVE_LOSS_KEY].mean)
+            print(stats_dict[OBJECTIVE_LOSS_KEY])
+            print(stats_dict)
 
             params = model.named_parameters() if args.log_params_histograms else None
             distiller.log_training_progress(stats,
