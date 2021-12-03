@@ -949,8 +949,8 @@ def train(train_loader, model, criterion, optimizer, epoch,
 
             #DEBUG
             #print(stats_dict[OBJECTIVE_LOSS_KEY].mean)
-            print(stats_dict[OBJECTIVE_LOSS_KEY])
-            print(stats_dict)
+            #print(stats_dict[OBJECTIVE_LOSS_KEY])
+            #print(stats_dict)
 
             params = model.named_parameters() if args.log_params_histograms else None
             distiller.log_training_progress(stats,
