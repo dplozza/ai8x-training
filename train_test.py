@@ -372,7 +372,7 @@ def main():
     # Define loss function (criterion)
     # DMOD
     if args.custom_loss: #custom loss uses loss from model (model.get_loss())
-        criterion = model.get_loss_criterion(args.pre_filter_coeff)
+        criterion = model.get_loss_criterion(args)
         #criterion = lambda y, y_pred: ((y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)).mean()
     elif not args.regression:
         if 'weight' in selected_source:
