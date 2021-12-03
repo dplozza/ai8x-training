@@ -841,7 +841,7 @@ def train(train_loader, model, criterion, optimizer, epoch,
 
         if not args.earlyexit_lossweights:
             loss = criterion(output, target)
-            print("Loss:",loss)
+            #print("Loss:",loss)
             
             # Measure accuracy if the conditions are set. For `Last Batch` only accuracy
             # calculateion last two batches are used as the last batch might include just a few
