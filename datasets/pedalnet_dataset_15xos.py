@@ -9,8 +9,21 @@ from torch.utils.data import TensorDataset
 
 import pickle
 
+from scipy.signal import butter, lfilter
+from scipy.signal import freqz
+
+sampling_rate = 66150
 sample_size = 6615 #HAS to be the same as x_train.size(2)
 out_sample_size = 6615
+
+def butter_highpass(lowcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    #high = highcut / nyq
+    b, a = butter(order, [low], btype='highpass')
+    return b, a
+
+def butter_highpass_filter(data, lowcut, fs, order=5):
 
 def pedalnet_get_datasets(data, load_train=True, load_test=True):
     """

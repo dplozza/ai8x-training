@@ -9,8 +9,12 @@ from torch.utils.data import TensorDataset
 
 import pickle
 
+from scipy.signal import butter, lfilter
+from scipy.signal import freqz
+
+sampling_rate = 44100
 sample_size = 4410 #HAS to be the same as x_train.size(2)
-out_sample_size = 4410 # 2362 this is overridden by loss function, this has to be big enough! (smaller is better for performance)
+out_sample_size = 2362 # 2362 this is overridden by loss function, this has to be big enough! (smaller is better for performance)
 
 
 # class normalize:
@@ -22,6 +26,35 @@ out_sample_size = 4410 # 2362 this is overridden by loss function, this has to b
 #             return img.sub(0.5).mul(256.).round().clamp(min=-128, max=127)
 #         return img.sub(0.5).mul(256.).round().clamp(min=-128, max=127).div(128.)
 
+def butter_highpass(lowcut, fs, order=5):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    #high = highcut / nyq
+    b, a = butter(order, [low], btype='highpass')
+    return b, a
+
+def butter_highpass_filter(data, lowcut, fs, order=5):
+    b, a = butter_highpass(lowcut, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
+def create_dithering_noise(N,sr,std,lowcut):
+    # dithering noise (gaussian psd)
+    #N = x_test_f.size #input (x lenght)
+    q_step = (1./128)
+    dither_std = std*q_step #lowest with still good results
+
+    dither_noise = np.random.randn(N)*dither_std
+
+    #noise shaping / dither filtering
+    #lowcut = 14000 #15000
+    order = 1 #2
+    #dither_noise_2 = butter_highpass_filter(dither_noise_2, lowcut, sr, order=order)
+    dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
+
+    return dither_noise 
+
+
 def pedalnet_get_datasets(data, load_train=True, load_test=True):
     """
     data is a tuple of the specified data directory and the program arguments,
@@ -32,7 +65,11 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     Usage: (shitty documentation style, you're welcome mdm)
     -Uses wide output (up to 32 bit). Can define output bit "amplitude" to actually use.
         args.output_bitdepth: 8 default, max 32
-    args.oversample: if 2 -> uses oversampled dataset (2x), default 1
+    -Dithering: adds normally sampled dithering
+        --args.dither_std: std of dithering * quant level! (1= 1 quant level), default 0 (dither not present)
+        --args.dither_hicutoff: cutoff freq of first order highpass filter on dither noise
+    
+    NOT IMPLEMENTED args.oversample: if 2 -> uses oversampled dataset (2x), default 1<
     """
 
     (data_dir, args) = data
@@ -70,6 +107,10 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
 
     x_test = x_test/x_complete.max()
     y_test = y_test/y_complete.max()
+
+    # ADD dithering
+    if args.dither_std > 0:
+        x_test = x_test + create_dithering_noise(x_test.flatten().size,sampling_rate,args.dither_std,args.dither_hicutoff).reshape(x_test.shape)
     
     out_range = 2**args.output_bitdepth #number of possible output values
 
