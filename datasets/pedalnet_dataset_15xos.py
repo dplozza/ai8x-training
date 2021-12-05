@@ -10,7 +10,6 @@ from torch.utils.data import TensorDataset
 import pickle
 
 from scipy.signal import butter, lfilter
-from scipy.signal import freqz
 
 sampling_rate = 66150
 sample_size = 6615 #HAS to be the same as x_train.size(2)
