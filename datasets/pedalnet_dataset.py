@@ -16,16 +16,6 @@ sampling_rate = 44100
 sample_size = 4410 #HAS to be the same as x_train.size(2)
 out_sample_size = 2362 # 2362 this is overridden by loss function, this has to be big enough! (smaller is better for performance)
 
-
-# class normalize:
-#     def __init__(self, args):
-#         self.args = args
-
-#     def __call__(self, img):
-#         if self.args.act_mode_8bit:
-#             return img.sub(0.5).mul(256.).round().clamp(min=-128, max=127)
-#         return img.sub(0.5).mul(256.).round().clamp(min=-128, max=127).div(128.)
-
 def butter_highpass(lowcut, fs, order=5):
     nyq = 0.5 * fs
     low = lowcut / nyq

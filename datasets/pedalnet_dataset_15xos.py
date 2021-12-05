@@ -24,6 +24,25 @@ def butter_highpass(lowcut, fs, order=5):
     return b, a
 
 def butter_highpass_filter(data, lowcut, fs, order=5):
+    b, a = butter_highpass(lowcut, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
+def create_dithering_noise(N,sr,std,lowcut):
+    # dithering noise (gaussian psd)
+    #N = x_test_f.size #input (x lenght)
+    q_step = (1./128)
+    dither_std = std*q_step #lowest with still good results
+
+    dither_noise = np.random.randn(N)*dither_std
+
+    #noise shaping / dither filtering
+    #lowcut = 14000 #15000
+    order = 1 #2
+    #dither_noise_2 = butter_highpass_filter(dither_noise_2, lowcut, sr, order=order)
+    dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
+
+    return dither_noise 
 
 def pedalnet_get_datasets(data, load_train=True, load_test=True):
     """
@@ -65,6 +84,10 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
 
     x_test = x_test/x_complete.max()
     y_test = y_test/y_complete.max()
+
+    # ADD dithering
+    if args.dither_std > 0:
+        x_test = x_test + create_dithering_noise(x_test.flatten().size,sampling_rate,args.dither_std,args.dither_hicutoff).reshape(x_test.shape)
     
     out_range = 2**args.output_bitdepth #number of possible output values
 
