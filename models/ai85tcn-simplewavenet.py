@@ -8,8 +8,7 @@
 ###################################################################################################
 """
 Wavenet (TCN) network that fit into AI84
-SIMPLE wavenet (with NO res and NO skip connections)
-
+Complete wavenet (with res and skip connections)
 
 """
 import torch
@@ -18,12 +17,12 @@ import torch.nn as nn
 import ai8x
 
 
-def error_to_signal(y, y_pred):
+def error_to_signal(y, y_pred,pre_filter_coeff):
     """
     Error to signal ratio with pre-emphasis filter:
     https://www.mdpi.com/2076-3417/10/3/766/htm
     """
-    y, y_pred = pre_emphasis_filter(y), pre_emphasis_filter(y_pred)
+    y, y_pred = pre_emphasis_filter(y,pre_filter_coeff), pre_emphasis_filter(y_pred,pre_filter_coeff)
     return (y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)
 
 
@@ -65,8 +64,6 @@ class AI85tcn(nn.Module):
         """
         super().__init__()
 
-        #print("SHIIIT",kwargs)
-
         #num_classes HAVE TO LEAVE IT HERE
         # Limits
         #assert planes + num_channels <= ai8x.dev.WEIGHT_INPUTS
@@ -77,11 +74,6 @@ class AI85tcn(nn.Module):
         self.num_channels = num_channels
 
         dilations = [dilation_power ** d for d in range(dilation_depth)] * num_repeat
-
-        #create dilated conv stack
-        self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
-        
-        #self.residuals = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, 1,bias=bias)
 
         #self.input_layer = ai8x.FusedConv1dReLU(
         # for first layer NO nonlinearity: simply linar mix
@@ -95,6 +87,11 @@ class AI85tcn(nn.Module):
                 bias=bias,
                 **kwargs 
             )
+
+        #create dilated conv stack
+        self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
+        #self.residuals = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, 1,bias=bias)
+
 
         self.linear_mix = ai8x.Conv1d(
             in_channels=num_hidden_channels, #*dilation_depth*num_repeat, #no skips * dilation_depth * num_repeat,
@@ -112,8 +109,9 @@ class AI85tcn(nn.Module):
         #init weights
         for m in self.modules():
             if isinstance(m, nn.Conv1d):
-                pass
-                #m.weight.data[:,:,:] = torch.tensor(0)
+                if m.bias is not None:
+                    m.bias.data = m.bias.data/10.0
+
                 #nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
 
 
@@ -125,34 +123,32 @@ class AI85tcn(nn.Module):
         skips = [] #stores skip connections
 
         out = self.input_layer(x)
-        self.outs.append(out)
+        #self.outs.append(out)
 
-        #for hidden, residual in zip(self.hidden, self.residuals):
-        for hidden  in  self.hidden:
+        for hidden in self.hidden:
             res = out
             out = hidden(out)
 
-            
-            skips.append(out) #append skip connections
+            #skips.append(out) #append skip connections
 
             #out = residual(out)
-
             #out = out + res[:, :, -out.size(2) :]
 
-            self.outs.append(out)
+            #self.outs.append(out)
+
+        #skips[-1] = out
 
         #out = torch.cat([s[:, :, -out.size(2) :] for s in skips], dim=1)
-
         out = self.linear_mix(out)
 
         #change linear mix SIZE!!!
 
         return out
 
-    def get_loss_criterion(self):
+    def get_loss_criterion(self,args):
         """Creates and return custom loss function"""
 
-        criterion = lambda y_pred,y: error_to_signal(y[:, :, -y_pred.size(2) :],y_pred).mean()
+        criterion = lambda y_pred,y: error_to_signal(y[:, :, -y_pred.size(2) :],y_pred,args.pre_filter_coeff).mean()
         #criterion = lambda y, y_pred: ((y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)).mean()
         print("Using custom loss")
         return criterion
