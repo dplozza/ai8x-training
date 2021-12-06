@@ -19,6 +19,7 @@ def generate(
         outputs,  # pylint: disable=unused-argument
         dataset_name,
         search=False,  # pylint: disable=unused-argument
+        act_mode_8bit=True #MODIFICATION: if not, make input 128 times bigger...
 ):
     """
     Save the element `index` from the `inputs` batch to a file named "sample_`dataset_name`.npy".
@@ -29,10 +30,15 @@ def generate(
 
     sample_name = 'sample_' + dataset_name.lower()
 
-    # FIXME: Implement search
+    # FIXME: Implement search        
 
     print(f'==> Saving sample at index {index} to {sample_name}.npy')
-    x = inputs[index].cpu().numpy().astype('int64')
+
+    #MODIFICATION: if not in act mode 8 bit, input is between -1 and 1 -> make it bigger!
+    x = inputs[index].cpu().numpy()
+    if not act_mode_8bit:
+        x = x*128.
+    x = x.astype('int64')
     x = np.clip(x, -128, 127)
     np.save(sample_name, x, allow_pickle=False, fix_imports=False)
 

@@ -1107,7 +1107,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
             output = model(inputs)
 
             if args.generate_sample is not None:
-                sample.generate(args.generate_sample, inputs, target, output, args.dataset, False)
+                sample.generate(args.generate_sample, inputs, target, output, args.dataset, False,args.act_mode_8bit)
                 return .0, .0, .0
 
             if args.csv_prefix is not None:
