@@ -13,7 +13,7 @@ from scipy.signal import butter, lfilter
 
 sampling_rate = 44100
 sample_size = 4410 #HAS to be the same as x_train.size(2)
-out_sample_size = 2362 # 2362 this is overridden by loss function, this has to be big enough! (smaller is better for performance)
+out_sample_size = 4410 #2362 # 2362 this is overridden by loss function, this has to be big enough! (smaller is better for performance)
 
 def butter_highpass(lowcut, fs, order=5):
     nyq = 0.5 * fs
