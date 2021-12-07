@@ -77,11 +77,6 @@ class AI85tcn(nn.Module):
 
         dilations = [dilation_power ** d for d in range(dilation_depth)] * num_repeat
 
-        #create dilated conv stack
-        self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
-        
-        self.residuals = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, 1,bias=bias)
-
         #self.input_layer = ai8x.FusedConv1dReLU(
         # for first layer NO nonlinearity: simply linar mix
         self.input_layer = ai8x.Conv1d(
@@ -94,6 +89,11 @@ class AI85tcn(nn.Module):
                 bias=bias,
                 **kwargs 
             )
+
+        #create dilated conv stack
+        self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
+        
+        self.residuals = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, 1,bias=bias)
 
         self.linear_mix = ai8x.Conv1d(
             in_channels=num_hidden_channels, #*dilation_depth*num_repeat, #no skips * dilation_depth * num_repeat,
