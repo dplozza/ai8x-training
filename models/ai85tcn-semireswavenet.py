@@ -9,7 +9,7 @@
 """
 Wavenet (TCN) network that fit into AI84
 Complete wavenet (with res and skip connections)
-
+BUT witouth residual weights!
 """
 import torch
 import torch.nn as nn
@@ -90,8 +90,6 @@ class AI85tcn(nn.Module):
 
         #create dilated conv stack
         self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
-        self.residuals = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, 1,bias=bias)
-
 
         self.linear_mix = ai8x.Conv1d(
             in_channels=num_hidden_channels*dilation_depth*num_repeat, #no skips * dilation_depth * num_repeat,
@@ -117,33 +115,22 @@ class AI85tcn(nn.Module):
 
     def forward(self, x):  # pylint: disable=arguments-differ
         """Forward prop"""
-
-        self.outs = []
         
         skips = [] #stores skip connections
 
         out = self.input_layer(x)
-        self.outs.append(out)
 
-        for hidden, residual in zip(self.hidden, self.residuals):
+        for hidden in self.hidden:
             res = out
             out = hidden(out)
 
             
             skips.append(out) #append skip connections
 
-            out = residual(out)
-
             out = out + res[:, :, -out.size(2) :]
-
-            self.outs.append(out)
-
-        #skips[-1] = out
 
         out = torch.cat([s[:, :, -out.size(2) :] for s in skips], dim=1)
         out = self.linear_mix(out)
-
-        #change linear mix SIZE!!!
 
         return out
 
@@ -156,7 +143,7 @@ class AI85tcn(nn.Module):
         return criterion
 
 
-def ai85reswavenet(pretrained=False, **kwargs):
+def ai85semireswavenet(pretrained=False, **kwargs):
     """
     Constructs a AI85Net5 model.
     """
@@ -166,7 +153,7 @@ def ai85reswavenet(pretrained=False, **kwargs):
 
 models = [
     {
-        'name': 'ai85reswavenet',
+        'name': 'ai85semireswavenet',
         'min_input': 1, #only useful for 2D models....
         'dim': 1, #the model handles 1D input
     }
