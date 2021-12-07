@@ -10,6 +10,8 @@
 Wavenet (TCN) network that fit into AI84
 Complete wavenet (with res and no skip connections)
 BUT withouth residual weights
+
+Test to solve different size addition problem (out = out + res[:, :, -out.size(2) :])
 """
 import torch
 import torch.nn as nn
@@ -30,26 +32,66 @@ def pre_emphasis_filter(x, coeff=0.95):
     return torch.cat((x[:, :, 0:1], x[:, :, 1:] - coeff * x[:, :, :-1]), dim=2)
 
 
-def _conv_stack(dilations, in_channels, out_channels, kernel_size,bias=True,**kwargs):
+def _conv_stack(module,dilations, in_channels, out_channels, kernel_size,bias=True,**kwargs):
     """
     Create stack of dilated convolutional layers, outlined in WaveNet paper:
     https://arxiv.org/pdf/1609.03499.pdf
     """
-    return nn.ModuleList(
-        [
-            ai8x.FusedConv1dReLU(
+    #we have to define layers IN ORDER of execution 
+    #add all layers to module with name
+    hidden = [] 
+    residual = []
+
+    residual_bias = False
+
+    for i, d in enumerate(dilations):
+        convrelu = ai8x.FusedConv1dReLU(
+                    in_channels=in_channels,
+                    out_channels=out_channels,
+                    kernel_size=kernel_size,
+                    stride=1,
+                    padding=0,
+                    dilation=d,
+                    bias=bias,
+                    **kwargs
+                )
+        setattr(module, 'hidden_'+str(i), convrelu)
+        hidden.append(convrelu)
+        
+        conv = ai8x.Conv1d(
                 in_channels=in_channels,
                 out_channels=out_channels,
                 kernel_size=kernel_size,
                 stride=1,
                 padding=0,
                 dilation=d,
-                bias=bias,
+                bias=bias and residual_bias,
                 **kwargs
             )
-            for i, d in enumerate(dilations)
-        ]
-    )
+
+        # set weight so that residual is identity!
+
+        setattr(module, 'residual_'+str(i), conv)
+        hidden.append(conv)
+        
+
+    return hidden, residual
+
+    # return nn.ModuleList(
+    #     [
+    #         ai8x.FusedConv1dReLU(
+    #             in_channels=in_channels,
+    #             out_channels=out_channels,
+    #             kernel_size=kernel_size,
+    #             stride=1,
+    #             padding=0,
+    #             dilation=d,
+    #             bias=bias,
+    #             **kwargs
+    #         )
+    #         for i, d in enumerate(dilations)
+    #     ]
+    # )
 
 class AI85tcn(nn.Module):
     """
@@ -91,8 +133,9 @@ class AI85tcn(nn.Module):
             )
 
         #create dilated conv stack
-        self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
-    
+        self.hidden,self.residual = _conv_stack(self,dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
+
+
         self.linear_mix = ai8x.Conv1d(
             in_channels=num_hidden_channels, #*dilation_depth*num_repeat, #no skips * dilation_depth * num_repeat,
             out_channels=1,
@@ -120,13 +163,16 @@ class AI85tcn(nn.Module):
         
         out = self.input_layer(x)
 
-        for hidden in self.hidden:
+        for hidden,residual in zip(self.hidden,self.residual):
             res = out
             out = hidden(out)
 
             #out = residual(out)
 
-            out = out + res[:, :, -out.size(2) :]
+            res = residual(res)
+
+            out = out + res
+            #out = out + res[:, :, -out.size(2) :]
 
         #out = torch.cat([s[:, :, -out.size(2) :] for s in skips], dim=1)
         out = self.linear_mix(out)
@@ -142,7 +188,7 @@ class AI85tcn(nn.Module):
         return criterion
 
 
-def ai85semireswavenet_noskip(pretrained=False, **kwargs):
+def ai85semireswavenet_noskip_test(pretrained=False, **kwargs):
     """
     Constructs a AI85Net5 model.
     """
@@ -152,7 +198,7 @@ def ai85semireswavenet_noskip(pretrained=False, **kwargs):
 
 models = [
     {
-        'name': 'ai85semireswavenet_noskip',
+        'name': 'ai85semireswavenet_noskip_test',
         'min_input': 1, #only useful for 2D models....
         'dim': 1, #the model handles 1D input
     }
