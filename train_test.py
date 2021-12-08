@@ -1106,6 +1106,9 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
             inputs, target = inputs.to(args.device), target.to(args.device)
             # compute output from model
             output = model(inputs)
+            save_tensor(inputs,"evaluation/inputs_"+str(validation_step))
+            save_tensor(output,"evaluation/output_"+str(validation_step))
+            save_tensor(target,"evaluation/target_"+str(validation_step))
 
             if args.generate_sample is not None:
                 sample.generate(args.generate_sample, inputs, target, output, args.dataset, False,args.act_mode_8bit)
