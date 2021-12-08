@@ -246,8 +246,10 @@ def get_parser(model_names, dataset_names):
 
      
     parser.add_argument('--dither-std',type=float,default=0, help='dithering std, relative to quantization step (std*quant_step). Disable=0')
-    parser.add_argument('--dither-hicutoff',type=int,default=100, help='cutoff freq of 1st order dithering highpass filter')
-
+    parser.add_argument('--dither-hicutoff',type=int,default=100, help='cutoff freq of dithering highpass filter')
+    parser.add_argument('--dither-order',type=int,default=1, help='order of dithering hipass filter')
+    parser.add_argument('--dither-pdf',type=str,default="normal", help='dithering pdf, normal or triangular')
+    
     parser.add_argument('--pre-filter-coeff',type=float,default=0.95, help='pre emphasis filter coefficient (0 is filter disabled)')
 
     parser.add_argument('--custom-loss', dest='custom_loss', default=False,

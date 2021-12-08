@@ -27,20 +27,29 @@ def butter_highpass_filter(data, lowcut, fs, order=5):
     y = lfilter(b, a, data)
     return y
 
-def create_dithering_noise(shape,sr,std,lowcut):
+def create_dithering_noise(shape,sr,std,lowcut,order=1,pdf="normal"):
+    """Creates dithering noises of the given shape, to be added to  signal
+    Args:
+        shape: shape of the array
+        sr: sampling rate
+        std: in normal case, std deviation with respect to quant level, in triangualr case is max noise value
+        lowcut: cutoff freq of highpass filter on dithering noise
+        order: order of highpass filter
+        pdf: "triangular" or "normal"
+    """
     # dithering noise (gaussian psd)
     #N = x_test_f.size #input (x lenght)
     q_step = (1./128)
     dither_std = std*q_step #lowest with still good results
-
-    dither_noise = np.random.randn(*shape)*dither_std
-
+    if pdf=="normal":
+        dither_noise = np.random.randn(*shape)*dither_std
+    elif pdf=="triangular":
+        dither_noise = np.random.triangular(-dither_std,0,dither_std,shape)
+    else:
+        raise Exception("Invalid noise pdf",pdf) 
     #noise shaping / dither filtering
-    #lowcut = 14000 #15000
-    order = 1 #2
     #dither_noise_2 = butter_highpass_filter(dither_noise_2, lowcut, sr, order=order)
     dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
-
     return dither_noise.astype(np.float32)
 
 def pedalnet_get_datasets(data, load_train=True, load_test=True):
@@ -87,7 +96,7 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     # ADD dithering
     if args.dither_std > 0:
         print("Adding dither std",args.dither_std ,"hicutoff",args.dither_hicutoff)
-        x_train = x_train + create_dithering_noise(x_train.shape,sampling_rate,args.dither_std,args.dither_hicutoff)
+        x_train = x_train + create_dithering_noise(x_train.shape,sampling_rate,args.dither_std,args.dither_hicutoff,args.dither_order,args.dither_pdf)
     
     out_range = 2**args.output_bitdepth #number of possible output values
 
