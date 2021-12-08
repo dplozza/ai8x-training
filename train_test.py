@@ -206,22 +206,23 @@ def main():
     msglogger.debug("Distiller: %s", distiller.__version__)
 
     # DMOD store args
-    def is_jsonable(x):
-        try:
-            json.dumps(x)
-            return True
-        except:
-            return False
-    args_dict = args.__dict__
-    keys_to_delete = []
-    for key,value in args_dict.items():
-        if not is_jsonable(value):
-            keys_to_delete.append(key)
-    for key in keys_to_delete:
-        args_dict[key] = str(args_dict[key])
-    with open(msglogger.logdir + '/configs/commandline_args.txt', 'w') as f:
-        json.dump(args_dict, f, indent=2)
-        
+    if not args.evaluate:
+        def is_jsonable(x):
+            try:
+                json.dumps(x)
+                return True
+            except:
+                return False
+        args_dict = args.__dict__
+        keys_to_delete = []
+        for key,value in args_dict.items():
+            if not is_jsonable(value):
+                keys_to_delete.append(key)
+        for key in keys_to_delete:
+            args_dict[key] = str(args_dict[key])
+        with open(msglogger.logdir + '/configs/commandline_args.txt', 'w') as f:
+            json.dump(args_dict, f, indent=2)
+            
 
     start_epoch = 0
     ending_epoch = args.epochs
