@@ -1107,9 +1107,9 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
             # compute output from model
             output = model(inputs)
 
-            np.save("evaluation/inputs_"+str(validation_step)+".npy",inputs)
-            np.save("evaluation/output_"+str(validation_step)+".npy",output)
-            np.save("evaluation/target_"+str(validation_step)+".npy",target)
+            np.save("evaluation/inputs_"+str(validation_step)+".npy",inputs.cpu().detach().numpy())
+            np.save("evaluation/output_"+str(validation_step)+".npy",output.cpu().detach().numpy())
+            np.save("evaluation/target_"+str(validation_step)+".npy",target.cpu().detach().numpy())
 
             if args.generate_sample is not None:
                 sample.generate(args.generate_sample, inputs, target, output, args.dataset, False,args.act_mode_8bit)
