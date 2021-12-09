@@ -70,7 +70,7 @@ def _conv_stack(module,dilations, in_channels, out_channels, kernel_size,bias=Tr
             )
 
         # set weight so that residual is identity!
-
+        
         setattr(module, 'residual_'+str(i), conv)
         hidden.append(conv)
         
