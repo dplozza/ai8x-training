@@ -1,7 +1,7 @@
 # Test dataset for audio filtering
 # input and output both audio files
 
-# Also uses WIDE representation for output layer! Which means uses full 32 bit
+# MULTIPLE CHANNELS AS INPUT TEST
 
 import numpy as np
 import torch
@@ -14,6 +14,7 @@ from scipy.signal import butter, lfilter
 sampling_rate = 44100
 sample_size = 4410 #HAS to be the same as x_train.size(2)
 out_sample_size = 4410 #2362 # 2362 this is overridden by loss function, this has to be big enough! (smaller is better for performance)
+n_input_channels = 32
 
 def butter_highpass(lowcut, fs, order=5):
     nyq = 0.5 * fs
@@ -98,10 +99,15 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     x_test = x_test/x_complete.max()
     y_test = y_test/y_complete.max()
 
-    # ADD dithering
+    #DUPLICATE x_train and x_test to n_input_channels channels (then add dithering indipendently)
+    x_train = np.repeat(x_train,n_input_channels,axis=1)
+    x_test = np.repeat(x_test,n_input_channels,axis=1)
+
+    # ADD dithering (indipendently to each input channel)
     if args.dither_std > 0:
         print("Adding dither std",args.dither_std ,"hicutoff",args.dither_hicutoff)
         x_train = x_train + create_dithering_noise(x_train.shape,sampling_rate,args.dither_std,args.dither_hicutoff,args.dither_order,args.dither_pdf)
+        x_test = x_test + create_dithering_noise(x_test.shape,sampling_rate,args.dither_std,args.dither_hicutoff,args.dither_order,args.dither_pdf)
     
     out_range = 2**args.output_bitdepth #number of possible output values
 
@@ -150,8 +156,8 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
 
 datasets = [
     {
-        'name': 'PEDALNET',
-        'input': (1, sample_size), #1 channel and 1D
+        'name': 'PEDALNET_CH32',
+        'input': (n_input_channels, sample_size), #1 channel and 1D
         #'output': list(map(str, range(10))), labels: only for NOT regression
         'output': [1], #WHY do I need to put this shit here...
         'loader': pedalnet_get_datasets,
