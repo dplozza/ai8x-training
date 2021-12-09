@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ###################################################################################################
 #
-# Copyright (C) Maxim Integrated Products, Inc. All Rights Reserved.
+# Copyright (C) 2019-2021 Maxim Integrated Products, Inc. All Rights Reserved.
 #
 # Maxim Integrated Products, Inc. Default Copyright Notice:
 # https://www.maximintegrated.com/en/aboutus/legal/copyrights.html
@@ -978,6 +978,13 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
             inputs, target = inputs.to(args.device), target.to(args.device)
             # compute output from model
             output = model(inputs)
+            # correct output for accurate loss calculation
+            if args.act_mode_8bit:
+                output /= 128.
+                for key in model.__dict__['_modules'].keys():
+                    if (hasattr(model.__dict__['_modules'][key], 'wide')
+                            and model.__dict__['_modules'][key].wide):
+                        output /= 256.
 
             if args.generate_sample is not None:
                 sample.generate(args.generate_sample, inputs, target, output, args.dataset, False)
