@@ -233,6 +233,7 @@ def get_parser(model_names, dataset_names):
     parser.add_argument('--sparsity-perf', action='store_true', default=False,
                         help='when determining best epoch, use sparsity as primary key')
 
+    parser.add_argument("--wavenet",type=bool,default=True,help="If true pass specific wavenet argument to model creator")
     parser.add_argument('--num-hidden-channels', type=int, default=12,
                         help='number of channels of hidden layers')
     parser.add_argument("--dilation-depth", type=int, default=10)
