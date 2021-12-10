@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 ###################################################################################################
 #
-# Copyright (C) Maxim Integrated Products, Inc. All Rights Reserved.
+# Copyright (C) 2019-2021 Maxim Integrated Products, Inc. All Rights Reserved.
 #
 # Maxim Integrated Products, Inc. Default Copyright Notice:
 # https://www.maximintegrated.com/en/aboutus/legal/copyrights.html
@@ -195,9 +195,9 @@ def main():
             print('WARNING: Initial learning rate (--lr) not set, selecting 0.1.')
         args.lr = 0.1
 
-    if args.name==None:
-        args.name = args.comment
-    msglogger = config_pylogger(os.path.join(script_dir, 'logging.conf'), args.name,#apputils.config_pylogger(os.path.join(script_dir, 'logging.conf'), args.name,
+    #msglogger = apputils.config_pylogger(os.path.join(script_dir, 'logging.conf'), args.name,
+                  #                       args.output_dir)
+    msglogger = config_pylogger(os.path.join(script_dir, 'logging.conf'), args.name,
                                          args.output_dir)
 
     # Log various details about the execution environment.  It is sometimes useful
@@ -222,7 +222,6 @@ def main():
             args_dict[key] = str(args_dict[key])
         with open(msglogger.logdir + '/configs/commandline_args.txt', 'w') as f:
             json.dump(args_dict, f, indent=2)
-            
 
     start_epoch = 0
     ending_epoch = args.epochs
@@ -242,7 +241,6 @@ def main():
         # https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/3
         cudnn.benchmark = True
 
-    # Set cuda or cpu
     if args.cpu or not torch.cuda.is_available():
         if not args.cpu:
             # Print warning if no hardware acceleration
@@ -273,7 +271,6 @@ def main():
         args.losses_exits = []
         args.exiterrors = []
 
-    # DCOM dataset selection (regression vs classification)
     selected_source = next((item for item in supported_sources if item['name'] == args.dataset))
     args.labels = selected_source['output']
     args.num_classes = len(args.labels)
@@ -626,7 +623,6 @@ def apply_default_logger_cfg(log_filename):
         }
     }
 
-
 def config_pylogger(log_cfg_file, experiment_name, output_dir='logs', verbose=False):
     """MODIFIED from distiller: Configure the Python logger.
 
@@ -671,7 +667,6 @@ def config_pylogger(log_cfg_file, experiment_name, output_dir='logs', verbose=Fa
     return msglogger
 
 
-
 OVERALL_LOSS_KEY = 'Overall Loss'
 OBJECTIVE_LOSS_KEY = 'Objective Loss'
 
@@ -709,7 +704,7 @@ def create_model(supported_models, dimensions, args):
                       weight_bits=weight_bits,
                       bias_bits=bias_bits,
                       quantize_activation=quantize_activation).to(args.device)
-    else:
+    elif args.wavenet:
         #modified specifically for reswavenet
         model = Model(pretrained=False, num_classes=args.num_classes,
                       num_channels=dimensions[0],
@@ -724,6 +719,14 @@ def create_model(supported_models, dimensions, args):
                       num_repeat=args.num_repeat,
                       kernel_size=args.kernel_size,
             
+                      quantize_activation=quantize_activation).to(args.device)
+    else:
+        model = Model(pretrained=False, num_classes=args.num_classes,
+                      num_channels=dimensions[0],
+                      dimensions=(dimensions[1], dimensions[2]),
+                      bias=args.use_bias,
+                      weight_bits=weight_bits,
+                      bias_bits=bias_bits,
                       quantize_activation=quantize_activation).to(args.device)
 
     return model
@@ -842,8 +845,6 @@ def train(train_loader, model, criterion, optimizer, epoch,
 
         if not args.earlyexit_lossweights:
             loss = criterion(output, target)
-            #print("Loss:",loss)
-            
             # Measure accuracy if the conditions are set. For `Last Batch` only accuracy
             # calculateion last two batches are used as the last batch might include just a few
             # samples.
@@ -947,11 +948,6 @@ def train(train_loader, model, criterion, optimizer, epoch,
             stats_dict['LR'] = optimizer.param_groups[0]['lr']
             stats_dict['Time'] = batch_time.mean
             stats = ('Performance/Training/', stats_dict)
-
-            #DEBUG
-            #print(stats_dict[OBJECTIVE_LOSS_KEY].mean)
-            #print(stats_dict[OBJECTIVE_LOSS_KEY])
-            #print(stats_dict)
 
             params = model.named_parameters() if args.log_params_histograms else None
             distiller.log_training_progress(stats,
@@ -1106,13 +1102,16 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
             inputs, target = inputs.to(args.device), target.to(args.device)
             # compute output from model
             output = model(inputs)
-
-            #np.save("evaluation/inputs_"+str(validation_step)+".npy",inputs.cpu().detach().numpy())
-            #np.save("evaluation/output_"+str(validation_step)+".npy",output.cpu().detach().numpy())
-            #np.save("evaluation/target_"+str(validation_step)+".npy",target.cpu().detach().numpy())
+            # correct output for accurate loss calculation
+            if args.act_mode_8bit:
+                output /= 128.
+                for key in model.__dict__['_modules'].keys():
+                    if (hasattr(model.__dict__['_modules'][key], 'wide')
+                            and model.__dict__['_modules'][key].wide):
+                        output /= 256.
 
             if args.generate_sample is not None:
-                sample.generate(args.generate_sample, inputs, target, output, args.dataset, False,args.act_mode_8bit)
+                sample.generate(args.generate_sample, inputs, target, output, args.dataset, False)
                 return .0, .0, .0
 
             if args.csv_prefix is not None:
@@ -1263,7 +1262,6 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
 def update_training_scores_history(perf_scores_history, model, top1, top5, epoch, args):
     """ Update the list of top training scores achieved so far, and log the best scores so far"""
 
-    #CORRECTION: need to consider TCNS -> else this shit gives division by zero error
     model_sparsity, _, params_nnz_cnt = distiller.model_params_stats(model,param_dims=[2,3, 4])
 
     if not args.regression:
