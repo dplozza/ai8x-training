@@ -1113,7 +1113,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
                         output /= 256.
 
             if args.save_npy is not None:
-                print("Predictions:",output)
+                if validation_step==0: print("Predictions (first batch):",output[0])
                 np.save(args.save_npy+"_inputs_"+str(validation_step)+".npy",inputs.cpu().detach().numpy())
                 np.save(args.save_npy+"_output_"+str(validation_step)+".npy",output.cpu().detach().numpy())
                 np.save(args.save_npy+"_target_"+str(validation_step)+".npy",target.cpu().detach().numpy())
