@@ -256,7 +256,9 @@ def get_parser(model_names, dataset_names):
     parser.add_argument('--custom-loss', dest='custom_loss', default=False,
                         action='store_true',
                         help='Uses model.get_loss_criterion() as criterion')
-
+   
+    parser.add_argument('--save-npy', dest='save_npy', default=None, type=str,
+                        help='save input, targert and pred with the given prefix during evaluation')
 
     parser.add_argument('--comment', type=str,default='Nothing')
 

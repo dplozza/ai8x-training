@@ -195,6 +195,8 @@ def main():
             print('WARNING: Initial learning rate (--lr) not set, selecting 0.1.')
         args.lr = 0.1
 
+    if args.name==None:
+        args.name = args.comment
     #msglogger = apputils.config_pylogger(os.path.join(script_dir, 'logging.conf'), args.name,
                   #                       args.output_dir)
     msglogger = config_pylogger(os.path.join(script_dir, 'logging.conf'), args.name,
@@ -1109,6 +1111,12 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
                     if (hasattr(model.__dict__['_modules'][key], 'wide')
                             and model.__dict__['_modules'][key].wide):
                         output /= 256.
+
+            if args.save_npy is not None:
+                print("Predictions:",output)
+                np.save(args.save_npy+"_inputs_"+str(validation_step)+".npy",inputs.cpu().detach().numpy())
+                np.save(args.save_npy+"_output_"+str(validation_step)+".npy",output.cpu().detach().numpy())
+                np.save(args.save_npy+"_target_"+str(validation_step)+".npy",target.cpu().detach().numpy())
 
             if args.generate_sample is not None:
                 sample.generate(args.generate_sample, inputs, target, output, args.dataset, False)
