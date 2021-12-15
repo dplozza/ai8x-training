@@ -1053,6 +1053,9 @@ def test(test_loader, model, criterion, loggers, activations_collectors, args):
 def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=None):
     """Execute the validation/test loop."""
     losses = {'objective_loss': tnt.AverageValueMeter()}
+    #MODIFICATION
+    if args.regression:
+        losses = {'objective_loss': tnt.AverageValueMeter(),'test_loss': tnt.AverageValueMeter()}
     if not args.regression:
         classerr = tnt.ClassErrorMeter(accuracy=True, topk=(1, min(args.num_classes, 5)))
     else:
