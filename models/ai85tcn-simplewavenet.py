@@ -148,7 +148,7 @@ class AI85tcn(nn.Module):
     def get_loss_criterion(self,args):
         """Creates and return custom loss function"""
 
-        criterion = lambda y_pred,y: error_to_signal(y[:, :, -y_pred.size(2) :],y_pred,args.pre_filter_coeff).mean()
+        criterion = lambda y_pred,y,testing=False: error_to_signal(y[:, :, -y_pred.size(2) :],y_pred,0 if testing else args.pre_filter_coeff).mean()
         #criterion = lambda y, y_pred: ((y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)).mean()
         print("Using custom loss")
         return criterion
