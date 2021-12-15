@@ -42,6 +42,8 @@ def generate(
     x = np.clip(x, -128, 127)
     np.save(sample_name, x, allow_pickle=False, fix_imports=False)
 
+    print(x)
+
     #MODIFICATION
     y = targets[index].cpu().numpy()
     np.save(sample_name+"_target", y, allow_pickle=False, fix_imports=False)
