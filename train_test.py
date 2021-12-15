@@ -549,7 +549,8 @@ def main():
                     checkpoint_name = f'nas_stg{stage}_lev{level}'
 
             with collectors_context(activations_collectors["valid"]) as collectors:
-                top1, top5, vloss = validate(val_loader, model, criterion, [pylogger], args, epoch,
+                #MODIFICATION, get test loss
+                top1, top5, vloss, vloss_test = validate(val_loader, model, criterion, [pylogger], args, epoch,
                                              tflogger)
                 distiller.log_activation_statistics(epoch, "valid", loggers=all_tbloggers,
                                                     collector=collectors["sparsity"])
@@ -560,7 +561,7 @@ def main():
                 if args.num_classes > 5:
                     stats[1]['Top5'] = top5
             else:
-                stats = ('Performance/Validation/', OrderedDict([('Loss', vloss), ('MSE', top1)]))
+                stats = ('Performance/Validation/', OrderedDict([('Loss', vloss),('Test_loss', vloss), ('MSE', top1)]))
 
             distiller.log_training_progress(stats, None, epoch, steps_completed=0, total_steps=1,
                                             log_freq=1, loggers=all_tbloggers)
@@ -577,7 +578,7 @@ def main():
                     checkpoint_extras = {'current_top1': top1,
                                         'current_vloss': vloss,
                                         'best_top1': perf_scores_history[0].top1,
-                                        'best_vloss': perf_scores_history[0].vloss,
+                                        'best_vloss': perf_scores_history[0].loss,
                                         'best_epoch': perf_scores_history[0].epoch}
                 else:
                     checkpoint_extras = {'current_top1': top1,
@@ -993,7 +994,7 @@ def test(test_loader, model, criterion, loggers, activations_collectors, args):
     if activations_collectors is None:
         activations_collectors = create_activation_stats_collectors(model, None)
     with collectors_context(activations_collectors["test"]) as collectors:
-        top1, top5, losses = _validate(test_loader, model, criterion, loggers, args)
+        top1, top5, losses, test_losses = _validate(test_loader, model, criterion, loggers, args)
         distiller.log_activation_statistics(-1, "test", loggers, collector=collectors['sparsity'])
 
         if args.kernel_stats:
@@ -1141,6 +1142,13 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
                 loss = criterion(output, target)
                 # measure accuracy and record loss
                 losses['objective_loss'].add(loss.item())
+
+                #MODIFICATION
+                if args.custom_loss:
+                    #if custom loss is provided, it should also provide a "test loss" version
+                    loss = criterion(output, target,testing=True)
+                    losses['test_loss'].add(loss.item())
+
                 if len(output.data.shape) <= 2:
                     classerr.add(output.data, target)
                 # CORRECTION
@@ -1178,9 +1186,11 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
                         if args.num_classes > 5:
                             stats[1]['Top5'] = classerr.value(5)
                     else:
+                        #MODIFICATION add test loss
                         stats = (
                             '',
                             OrderedDict([('Loss', losses['objective_loss'].mean),
+                                         ('Test_loss', losses['test_loss'].mean),
                                          ('MSE', classerr.value())])
                         )
                 else:
@@ -1256,8 +1266,9 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
                 msglogger.info('==> Top1: %.3f    Loss: %.3f\n',
                                classerr.value()[0], losses['objective_loss'].mean)
         else:
-            msglogger.info('==> MSE: %.5f    Loss: %.3f\n',
-                           classerr.value(), losses['objective_loss'].mean)
+            #MODIFICATION print also test loss
+            msglogger.info('==> MSE: %.5f    Loss: %.3f    Test Loss: %.3f \n',
+                           classerr.value(), losses['objective_loss'].mean,losses['test_loss'].mean)
 
         if args.display_confusion:
             msglogger.info('==> Confusion:\n%s\n', str(confusion.value()))
@@ -1267,10 +1278,11 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
                                                    dataformats='HWC')
         if not args.regression:
             return classerr.value(1), classerr.value(min(args.num_classes, 5)), \
-                losses['objective_loss'].mean
+                losses['objective_loss'].mean,losses['objective_loss'].mean
         # else:
+        #MODIFICATION
         return classerr.value(), .0, \
-            losses['objective_loss'].mean
+            losses['objective_loss'].mean, losses['test_loss'].mean
     # else:
     total_top1, total_top5, losses_exits_stats = earlyexit_validate_stats(args)
     return total_top1, total_top5, losses_exits_stats[args.num_exits-1]
