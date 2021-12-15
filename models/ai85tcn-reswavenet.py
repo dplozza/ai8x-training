@@ -23,12 +23,10 @@ def error_to_signal(y, y_pred,pre_filter_coeff):
     https://www.mdpi.com/2076-3417/10/3/766/htm
     """
     y, y_pred = pre_emphasis_filter(y,pre_filter_coeff), pre_emphasis_filter(y_pred,pre_filter_coeff)
-    return (y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 1e-10)
-
+    return (y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + 10e-6) #add 10e-6 to avoid division by 0. Since reference is 16bit -> min quant step is 10e-6 
 
 def pre_emphasis_filter(x, coeff=0.95):
     return torch.cat((x[:, :, 0:1], x[:, :, 1:] - coeff * x[:, :, :-1]), dim=2)
-
 
 def _conv_stack(dilations, in_channels, out_channels, kernel_size,bias=True,**kwargs):
     """
