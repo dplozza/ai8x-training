@@ -1133,7 +1133,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
 
             if args.generate_sample is not None:
                 sample.generate(args.generate_sample, inputs, target, output, args.dataset, False)
-                return .0, .0, .0
+                return .0, .0, .0, .0
 
             if args.csv_prefix is not None:
                 save_tensor(inputs, f_x)
