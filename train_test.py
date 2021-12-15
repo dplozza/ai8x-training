@@ -566,14 +566,23 @@ def main():
                                             log_freq=1, loggers=all_tbloggers)
 
             # Update the list of top scores achieved so far
-            update_training_scores_history(perf_scores_history, model, top1, top5, epoch, args)
+            update_training_scores_history(perf_scores_history, model, top1, top5, epoch, args,vloss)
 
             # Save the checkpoint
             if run_validation:
                 is_best = epoch == perf_scores_history[0].epoch
-                checkpoint_extras = {'current_top1': top1,
-                                     'best_top1': perf_scores_history[0].top1,
-                                     'best_epoch': perf_scores_history[0].epoch}
+                
+                #MODIFICATION
+                if args.custom_loss:
+                    checkpoint_extras = {'current_top1': top1,
+                                        'current_vloss': vloss,
+                                        'best_top1': perf_scores_history[0].top1,
+                                        'best_vloss': perf_scores_history[0].vloss,
+                                        'best_epoch': perf_scores_history[0].epoch}
+                else:
+                    checkpoint_extras = {'current_top1': top1,
+                                        'best_top1': perf_scores_history[0].top1,
+                                        'best_epoch': perf_scores_history[0].epoch}
             else:
                 is_best = False
                 checkpoint_extras = {'current_top1': top1}
@@ -1267,7 +1276,7 @@ def _validate(data_loader, model, criterion, loggers, args, epoch=-1, tflogger=N
     return total_top1, total_top5, losses_exits_stats[args.num_exits-1]
 
 
-def update_training_scores_history(perf_scores_history, model, top1, top5, epoch, args):
+def update_training_scores_history(perf_scores_history, model, top1, top5, epoch, args,loss):
     """ Update the list of top training scores achieved so far, and log the best scores so far"""
 
     model_sparsity, _, params_nnz_cnt = distiller.model_params_stats(model,param_dims=[2,3, 4])
@@ -1298,6 +1307,30 @@ def update_training_scores_history(perf_scores_history, model, top1, top5, epoch
                                'Params: %d on epoch: %d]',
                                score.top1, score.sparsity, -score.params_nnz_cnt,
                                score.epoch)
+    #MODIFICATION
+    elif args.custom_loss: #and regression
+        #if custom loss: use custom validation loss as ranking score
+        #insert 1-val loss in "top1" to use as ranking metric (to find best epoch)
+        perf_scores_history.append(distiller.MutableNamedTuple({'params_nnz_cnt': - params_nnz_cnt,
+                                                                'sparsity': model_sparsity,
+                                                                'top1': 1. - loss,
+                                                                'loss': loss,
+                                                                'MSE': top1,
+                                                                'epoch': epoch}))
+        # Keep perf_scores_history sorted from best to worst
+        if not args.sparsity_perf:
+            # Sort by Loss as main sort key, then sort by epoch
+            perf_scores_history.sort(key=operator.attrgetter('top1', 'epoch'), reverse=True)
+        else:
+            # Sort by sparsity as main sort key, then sort by mse, and epoch
+            perf_scores_history.sort(key=operator.attrgetter('params_nnz_cnt', 'top1', 'epoch'),
+                                     reverse=True)
+        for score in perf_scores_history[:args.num_best_scores]:
+            msglogger.info('==> Best [Loss: %.5f   Sparsity:%.2f   '
+                           'Params: %d on epoch: %d]',
+                           1. - score.top1, score.sparsity, -score.params_nnz_cnt,
+                           score.epoch)
+
     else:
         perf_scores_history.append(distiller.MutableNamedTuple({'params_nnz_cnt': -params_nnz_cnt,
                                                                 'sparsity': model_sparsity,
