@@ -52,7 +52,7 @@ def create_dithering_noise(shape,sr,std,lowcut,order=1,pdf="normal"):
     #dither_noise_2 = butter_highpass_filter(dither_noise_2, lowcut, sr, order=order)
     dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
     return dither_noise.astype(np.float32)
-    
+
 def pre_emphasis_filter(x, coeff=0.95):
     return torch.cat((x[:, :, 0:1], x[:, :, 1:] - coeff * x[:, :, :-1]), dim=2)
 
@@ -91,7 +91,7 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
 
     #PREPROCESS inptut data with pre-emph filter!
     if args.preprocess_filter > 0:
-        filter_coeff = args.args.preprocess_filter
+        filter_coeff = args.preprocess_filter
         x_train = pre_emphasis_filter(torch.tensor(x_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_train.shape)
         y_train = pre_emphasis_filter(torch.tensor(y_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_train.shape)
 
