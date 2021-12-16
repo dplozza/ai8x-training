@@ -52,7 +52,9 @@ def create_dithering_noise(shape,sr,std,lowcut,order=1,pdf="normal"):
     #dither_noise_2 = butter_highpass_filter(dither_noise_2, lowcut, sr, order=order)
     dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
     return dither_noise.astype(np.float32)
-
+    
+def pre_emphasis_filter(x, coeff=0.95):
+    return torch.cat((x[:, :, 0:1], x[:, :, 1:] - coeff * x[:, :, :-1]), dim=2)
 
 def pedalnet_get_datasets(data, load_train=True, load_test=True):
     """
@@ -87,12 +89,22 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     x_test = data["x_test"]
     y_test = data["y_test"]
 
+    #PREPROCESS inptut data with pre-emph filter!
+    if args.preprocess_filter > 0:
+        filter_coeff = args.args.preprocess_filter
+        x_train = pre_emphasis_filter(torch.tensor(x_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_train.shape)
+        y_train = pre_emphasis_filter(torch.tensor(y_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_train.shape)
+
+        x_test = pre_emphasis_filter(torch.tensor(x_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_test.shape)
+        y_test = pre_emphasis_filter(torch.tensor(y_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_test.shape)
+
+
     #Normalization: normalize the whole data the same way, so that dynamic range is fully used 
     #both in and output uses range -1 to +1
-    x_complete = np.concatenate((data["x_train"],data["x_valid"],data["x_test"]))
-    y_complete= np.concatenate((data["y_train"],data["y_valid"],data["y_test"]))
+    x_complete = np.concatenate((x_train,x_test))
+    y_complete= np.concatenate((y_train,y_test))
 
-    #transform data between -1 and 1 or -128 and 127
+    #transform data between -1 and 1
     x_train = x_train/x_complete.max()
     y_train = y_train/y_complete.max()
 

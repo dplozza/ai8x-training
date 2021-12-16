@@ -251,7 +251,9 @@ def get_parser(model_names, dataset_names):
     parser.add_argument('--dither-order',type=int,default=1, help='order of dithering hipass filter')
     parser.add_argument('--dither-pdf',type=str,default="normal", help='dithering pdf, normal or triangular')
     
-    parser.add_argument('--pre-filter-coeff',type=float,default=0.95, help='pre emphasis filter coefficient (0 is filter disabled)')
+    parser.add_argument('--preprocess-filter',type=float,default=0, help='PREPROCESS input data with pre emphasis filter coefficient (0 is filter disabled)')
+
+    parser.add_argument('--pre-filter-coeff',type=float,default=0.95, help='pre emphasis filter DURING LOSS coefficient (0 is filter disabled)')
 
     parser.add_argument('--custom-loss', dest='custom_loss', default=False,
                         action='store_true',
