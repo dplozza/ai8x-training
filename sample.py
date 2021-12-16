@@ -42,7 +42,14 @@ def generate(
     x = np.clip(x, -128, 127)
     np.save(sample_name, x, allow_pickle=False, fix_imports=False)
 
-    print(x)
+    print(x.flatten()[:16])
+    print(inputs[index].cpu().numpy().flatten().max())
+    print(inputs[index+1].cpu().numpy().flatten().max())
+    print(inputs[index+2].cpu().numpy().flatten().max())
+    print(inputs[index+3].cpu().numpy().flatten().max())
+    print(inputs[index+4].cpu().numpy().flatten().max())
+    print(inputs[index+5].cpu().numpy().flatten().max())
+    print(inputs[index+6].cpu().numpy().flatten().max())
 
     #MODIFICATION
     y = targets[index].cpu().numpy()
