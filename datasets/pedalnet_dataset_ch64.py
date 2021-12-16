@@ -156,7 +156,7 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
 
 datasets = [
     {
-        'name': 'PEDALNET_CH32',
+        'name': 'PEDALNET_CH64',
         'input': (n_input_channels, sample_size), #1 channel and 1D
         #'output': list(map(str, range(10))), labels: only for NOT regression
         'output': [1], #WHY do I need to put this shit here...
