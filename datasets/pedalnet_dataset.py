@@ -176,8 +176,8 @@ def pedalnet_get_datasets_func(n_input_channels,wavedatafile):
         n_input_channels: number of CNN input channels, copies input waveform n_input_channels times
         wavedatafile: name of wavefile pickle data to use as data (relative to data/PEDALNET folder and without. .pickle)
     """
-    def get_datasets():
-        return pedalnet_get_datasets(n_input_channels,wavedatafile)
+    def get_datasets(*args, **kwargs):
+        return pedalnet_get_datasets(n_input_channels,wavedatafile,*args, **kwargs)
     return get_datasets
 
 
