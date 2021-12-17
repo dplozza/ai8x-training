@@ -181,7 +181,7 @@ def pedalnet_get_datasets_func(n_input_channels,wavedatafile):
     return get_datasets
 
 
-wavedatafile = "ts9_test1_FP32"
+wavedatafile = "ts9_test1_FP32" #"ts9_test2"
 datasets = [
     {
         'name': 'PEDALNET',
@@ -225,6 +225,58 @@ datasets = [
     },
     {
         'name': 'PEDALNET_CH64',
+        'input': (64, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(64,wavedatafile),
+        'regression': True 
+    },
+]
+
+wavedatafile = "ts9_test2"
+datasets = [
+    {
+        'name': 'PEDALNET2',
+        'input': (1, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(1,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET2_CH12',
+        'input': (12, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(12,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET2_CH16',
+        'input': (16, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(16,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET2_CH24',
+        'input': (24, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(24,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET2_CH32',
+        'input': (32, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(32,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET2_CH64',
         'input': (64, sample_size), #1 channel and 1D
         #'output': list(map(str, range(10))), labels: only for NOT regression
         'output': [1], #WHY do I need to put this shit here...
