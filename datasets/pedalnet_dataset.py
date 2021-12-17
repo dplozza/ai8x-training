@@ -233,7 +233,7 @@ datasets = [
     },
 ]
 
-wavedatafile = "ts9_test2"
+wavedatafile = "ts9_test2_sz512"
 datasets = [
     {
         'name': 'PEDALNET2',
