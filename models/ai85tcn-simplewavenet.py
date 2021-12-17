@@ -89,7 +89,7 @@ class AI85tcn(nn.Module):
             )
 
         #create dilated conv stack
-        self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias)
+        self.hidden = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, kernel_size,bias=bias,**kwargs)
         #self.residuals = _conv_stack(dilations, num_hidden_channels, num_hidden_channels, 1,bias=bias)
 
 

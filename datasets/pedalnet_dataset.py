@@ -1,7 +1,8 @@
 # Test dataset for audio filtering
 # input and output both audio files
 
-# Also uses WIDE representation for output layer! Which means uses full 32 bit
+# MULTIPLE CHANNELS AS INPUT TEST
+# and everything else
 
 import numpy as np
 import torch
@@ -14,6 +15,7 @@ from scipy.signal import butter, lfilter
 sampling_rate = 44100
 sample_size = 4410 #HAS to be the same as x_train.size(2)
 out_sample_size = 4410 #2362 # 2362 this is overridden by loss function, this has to be big enough! (smaller is better for performance)
+#n_input_channels = 16
 
 def butter_highpass(lowcut, fs, order=5):
     nyq = 0.5 * fs
@@ -52,8 +54,10 @@ def create_dithering_noise(shape,sr,std,lowcut,order=1,pdf="normal"):
     dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
     return dither_noise.astype(np.float32)
 
+def pre_emphasis_filter(x, coeff=0.95):
+    return torch.cat((x[:, :, 0:1], x[:, :, 1:] - coeff * x[:, :, :-1]), dim=2)
 
-def pedalnet_get_datasets(data, load_train=True, load_test=True):
+def pedalnet_get_datasets(n_input_channels, wavedatafile,data, load_train=True, load_test=True):
     """
     data is a tuple of the specified data directory and the program arguments,
     and the two bools specify whether training and/or test data should be loaded.
@@ -75,7 +79,7 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     #read data from pickle
     ds = lambda x, y: TensorDataset(torch.from_numpy(x), torch.from_numpy(y))
 
-    data_file = "/AUDIO/data.pickle"
+    data_file = "/PEDALNET/"+wavedatafile+".pickle"
     
     data = pickle.load(open(data_dir + data_file, "rb"))  
 
@@ -86,22 +90,38 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
     x_test = data["x_test"]
     y_test = data["y_test"]
 
+    #PREPROCESS inptut data with pre-emph filter!
+    if args.preprocess_filter > 0:
+        filter_coeff = args.preprocess_filter
+        x_train = pre_emphasis_filter(torch.tensor(x_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_train.shape)
+        y_train = pre_emphasis_filter(torch.tensor(y_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_train.shape)
+
+        x_test = pre_emphasis_filter(torch.tensor(x_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_test.shape)
+        y_test = pre_emphasis_filter(torch.tensor(y_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_test.shape)
+
+
     #Normalization: normalize the whole data the same way, so that dynamic range is fully used 
     #both in and output uses range -1 to +1
-    x_complete = np.concatenate((data["x_train"],data["x_valid"],data["x_test"]))
-    y_complete= np.concatenate((data["y_train"],data["y_valid"],data["y_test"]))
+    x_complete = np.concatenate((x_train,x_test))
+    y_complete= np.concatenate((y_train,y_test))
 
-    #transform data between -1 and 1 or -128 and 127
+    #transform data between -1 and 1
     x_train = x_train/x_complete.max()
     y_train = y_train/y_complete.max()
 
     x_test = x_test/x_complete.max()
     y_test = y_test/y_complete.max()
 
-    # ADD dithering
+    #DUPLICATE x_train and x_test to n_input_channels channels (then add dithering indipendently)
+    if n_input_channels>1:
+        x_train = np.repeat(x_train,n_input_channels,axis=1)
+        x_test = np.repeat(x_test,n_input_channels,axis=1)
+
+    # ADD dithering (indipendently to each input channel)
     if args.dither_std > 0:
         print("Adding dither std",args.dither_std ,"hicutoff",args.dither_hicutoff)
         x_train = x_train + create_dithering_noise(x_train.shape,sampling_rate,args.dither_std,args.dither_hicutoff,args.dither_order,args.dither_pdf)
+        x_test = x_test + create_dithering_noise(x_test.shape,sampling_rate,args.dither_std,args.dither_hicutoff,args.dither_order,args.dither_pdf)
     
     out_range = 2**args.output_bitdepth #number of possible output values
 
@@ -148,13 +168,67 @@ def pedalnet_get_datasets(data, load_train=True, load_test=True):
 
     return train_ds,test_ds
 
+
+def pedalnet_get_datasets_func(n_input_channels,wavedatafile):
+    """
+    Returns pedalnet_get_datasets with given hyperparams
+    Args:
+        n_input_channels: number of CNN input channels, copies input waveform n_input_channels times
+        wavedatafile: name of wavefile pickle data to use as data (relative to data/PEDALNET folder and without. .pickle)
+    """
+    def get_datasets():
+        return pedalnet_get_datasets(n_input_channels,wavedatafile)
+    return get_datasets
+
+
+wavedatafile = "ts9_test1_FP32"
 datasets = [
     {
         'name': 'PEDALNET',
         'input': (1, sample_size), #1 channel and 1D
         #'output': list(map(str, range(10))), labels: only for NOT regression
         'output': [1], #WHY do I need to put this shit here...
-        'loader': pedalnet_get_datasets,
+        'loader': pedalnet_get_datasets_func(1,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET_CH12',
+        'input': (12, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(12,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET_CH16',
+        'input': (16, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(16,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET_CH24',
+        'input': (24, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(24,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET_CH32',
+        'input': (32, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(32,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET_CH64',
+        'input': (64, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(64,wavedatafile),
         'regression': True 
     },
 ]
