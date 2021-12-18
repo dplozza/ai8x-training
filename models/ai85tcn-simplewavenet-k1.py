@@ -155,7 +155,7 @@ class AI85tcn(nn.Module):
         return criterion
 
 
-def ai85simplewavenet(pretrained=False, **kwargs):
+def ai85simplewavenet_k1(pretrained=False, **kwargs):
     """
     Constructs a AI85Net5 model.
     """
