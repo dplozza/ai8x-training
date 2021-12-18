@@ -254,6 +254,7 @@ def get_parser(model_names, dataset_names):
     parser.add_argument('--preprocess-filter',type=float,default=0, help='PREPROCESS input data with pre emphasis filter coefficient (0 is filter disabled)')
 
     parser.add_argument('--pre-filter-coeff',type=float,default=0.95, help='pre emphasis filter DURING LOSS coefficient (0 is filter disabled)')
+    parser.add_argument('--loss-regularizer',type=float,default=10e-6, help='constant term added to the loss ESR denominator to mitigate division by zero')
 
     parser.add_argument('--custom-loss', dest='custom_loss', default=False,
                         action='store_true',
