@@ -165,7 +165,7 @@ def ai85simplewavenet(pretrained=False, **kwargs):
 
 models = [
     {
-        'name': 'ai85simplewavenet',
+        'name': 'ai85simplewavenet_k1',
         'min_input': 1, #only useful for 2D models....
         'dim': 1, #the model handles 1D input
     }
