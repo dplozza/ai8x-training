@@ -234,7 +234,7 @@ datasets = [
 ]
 
 wavedatafile = "ts9_test2_sz512"
-datasets = [
+datasets = datasets + [
     {
         'name': 'PEDALNET2',
         'input': (1, sample_size), #1 channel and 1D
