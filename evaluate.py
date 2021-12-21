@@ -21,6 +21,7 @@ import sys
 import time
 import traceback
 from pydoc import locate
+import re
 
 import numpy as np
 
@@ -52,48 +53,35 @@ import parsecmd
 
 from train_test import create_model, update_old_model_params
 
-#GLOBAL SHIT, done once file is loaded
+from evaluate_utils import *
 
+#--------------
+# GLOBALS
+#--------------
+
+# GLOBAL OPERATIONS, done once file is loaded:
+# dynamically get list of models and datasets
 supported_models = []
 supported_sources = []
 model_names = []
 dataset_names = []
 
-# Dynamically load models
-for _, _, files in sorted(os.walk('models')):
-    for name in sorted(files):
-        if fnmatch.fnmatch(name, '*.py'):
-            fn = 'models.' + name[:-3]
-            m = locate(fn)
-            try:
-                for i in m.models:
-                    i['module'] = fn
-                supported_models += m.models
-                model_names += [item['name'] for item in m.models]
-            except AttributeError:
-                # Skip files that don't have 'models' or 'models.name'
-                pass
 
-# Dynamically load datasets
-for _, _, files in sorted(os.walk('datasets')):
-    for name in sorted(files):
-        if fnmatch.fnmatch(name, '*.py'):
-            ds = locate('datasets.' + name[:-3])
-            try:
-                supported_sources += ds.datasets
-                dataset_names += [item['name'] for item in ds.datasets]
-            except AttributeError:
-                # Skip files that don't have 'datasets' or 'datasets.name'
-                pass
 
+#---------------
+#MODEL LOADING
+#---------------
 
 def load_args(model_log_path,act_mode_8bit=False):
+
+    #load models and datasets globally
+    _load_models_datasets_globally()
 
     #create args
     cmd_line_args = "--model ai85net5 --dataset MNIST"
     args = parsecmd.get_parser(model_names, dataset_names).parse_args(cmd_line_args.split())
 
-    with open(model_log_path+'configs/commandline_args.txt', 'r') as f:
+    with open(model_log_path+'configs\\commandline_args.txt', 'r') as f:
         loaded_args = json.load(f)
     args.num_hidden_channels = loaded_args["num_hidden_channels"]
     print("num hidden channels",args.num_hidden_channels)
@@ -106,6 +94,7 @@ def load_args(model_log_path,act_mode_8bit=False):
 
     args.cnn = loaded_args["cnn"]
     print("model",args.cnn)
+    print("dataset",args.dataset)
     print("dl",args.dilation_depth,"  p",args.dilation_power,"  r",args.num_repeat,"  k",args.kernel_size)
 
     #dithering
@@ -123,9 +112,12 @@ def load_args(model_log_path,act_mode_8bit=False):
 
     return args
 
-def load_model(load_model_path,args):
+def load_model(load_model_path,args,act_mode_8bit=False):
 
     qat_policy = args.qat_policy_dict
+    
+    args.act_mode_8bit=act_mode_8bit
+    _init_stuff(args)
     
     model = create_model(supported_models, args.dimensions, args)
     
@@ -142,6 +134,10 @@ def load_model(load_model_path,args):
     model.eval()
     print("Model loaded correctly")
     return model
+
+def set_8bit_mode(act_mode_8bit,args):
+    args.act_mode_8bit = act_mode_8bit
+    ai8x.set_device(args.ai8x_device, args.act_mode_8bit, args.avg_pool_rounding)
 
 def _init_stuff(args):
     
@@ -171,6 +167,7 @@ def _init_stuff(args):
             # Set default device in case the first one on the list != 0
             torch.cuda.set_device(args.gpus[0])
 
+
     # DCOM dataset selection (regression vs classification)
     selected_source = next((item for item in supported_sources if item['name'] == args.dataset))
     args.labels = selected_source['output']
@@ -199,41 +196,330 @@ def _init_stuff(args):
     
     args.qat_policy_dict = qat_policy
 
+def _load_models_datasets_globally():
 
-def OBSOLETE_load_models_datasets():
+    # Load all models and datasets and store in module GLOBAL lists!
+    global supported_models
+    global supported_sources
+    global model_names
+    global dataset_names
 
-    # Load all models and datasets
-    supported_models = []
-    supported_sources = []
-    model_names = []
-    dataset_names = []
+    #lists must exists, and are initialized only once module is loaded one time
+    #this is kinda the sigleton programming pattern, and it's BAD, but it works
+    if len(supported_models) == 0 and len(supported_sources) == 0: #do only once
 
-    # Dynamically load models
-    for _, _, files in sorted(os.walk('models')):
-        for name in sorted(files):
-            if fnmatch.fnmatch(name, '*.py'):
-                fn = 'models.' + name[:-3]
-                m = locate(fn)
-                try:
-                    for i in m.models:
-                        i['module'] = fn
-                    supported_models += m.models
-                    model_names += [item['name'] for item in m.models]
-                except AttributeError:
-                    # Skip files that don't have 'models' or 'models.name'
-                    pass
-    # Dynamically load datasets
-    for _, _, files in sorted(os.walk('datasets')):
-        for name in sorted(files):
-            if fnmatch.fnmatch(name, '*.py'):
-                ds = locate('datasets.' + name[:-3])
-                try:
-                    supported_sources += ds.datasets
-                    dataset_names += [item['name'] for item in ds.datasets]
-                except AttributeError:
-                    # Skip files that don't have 'datasets' or 'datasets.name'
-                    pass
+        # Dynamically load models
+        for _, _, files in sorted(os.walk('models')):
+            for name in sorted(files):
+                if fnmatch.fnmatch(name, '*.py'):
+                    fn = 'models.' + name[:-3]
+                    m = locate(fn)
+                    try:
+                        for i in m.models:
+                            i['module'] = fn
+                        supported_models += m.models
+                        model_names += [item['name'] for item in m.models]
+                    except AttributeError:
+                        # Skip files that don't have 'models' or 'models.name'
+                        pass
 
-    return supported_models, supported_sources,model_names,dataset_names
- 
+        # Dynamically load datasets
+        for _, _, files in sorted(os.walk('datasets')):
+            for name in sorted(files):
+                if fnmatch.fnmatch(name, '*.py'):
+                    ds = locate('datasets.' + name[:-3])
+                    try:
+                        supported_sources += ds.datasets
+                        dataset_names += [item['name'] for item in ds.datasets]
+                    except AttributeError:
+                        # Skip files that don't have 'datasets' or 'datasets.name'
+                        pass
+
+
+#------------------
+#DATASET LOADING
+#------------------
+
+def prepare_test_set(args,n_samples=None,sr=44100,dither_zeros=True):
+    """
+    Args:
+        n_samples: if None, load all test samples, else load only first n_samples test samples
+        dither_zeros: if true add dithering also to zeros. Else only add dithering to nonzero input values
+    """
     
+    if args.dataset in ["PEDALNET","PEDALNET_FLOAT","PEDALNET_CH12","PEDALNET_CH16","PEDALNET_CH24","PEDALNET_CH32"]:
+        data = pickle.load(open("data/PEDALNET/ts9_test1_FP32.pickle", "rb"))
+    elif args.dataset in ["PEDALNET2","PEDALNET2_CH12","PEDALNET2_CH16","PEDALNET2_CH24","PEDALNET2_CH32"]:
+        data = pickle.load(open("data/PEDALNET/ts9_test2_sz512.pickle", "rb"))
+    elif args.dataset in ["PEDALNET_15XOS","PEDALNET_15XOS_FLOAT"]:
+        data = pickle.load(open("data/AUDIO/data_1.5xos.pickle", "rb"))
+    elif args.dataset in ["PEDALNET_2XOS","PEDALNET_2XOS_FLOAT"]:
+        data = pickle.load(open("data/AUDIO/data_2xos.pickle", "rb"))
+    else:
+        raise Exception("Unknown dataset",args.dataset)
+
+
+    x_train = np.concatenate((data["x_train"],data["x_valid"]))
+    y_train = np.concatenate((data["y_train"],data["y_valid"]))
+
+    x_test = data["x_test"] 
+    y_test = data["y_test"] 
+    
+    x_max_orig = np.concatenate((x_train,x_test)).max()
+    y_max_orig = np.concatenate((y_train,y_test)).max()
+    
+    x_test_orig = x_test/x_max_orig
+    y_test_orig = y_test/y_max_orig
+    
+    #PREPROCESS inptut data with pre-emph filter!
+    if args.preprocess_filter > 0:
+        filter_coeff = args.preprocess_filter
+        x_train = pre_emphasis_filter(torch.tensor(x_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_train.shape)
+        y_train = pre_emphasis_filter(torch.tensor(y_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_train.shape)
+
+        x_test = pre_emphasis_filter(torch.tensor(x_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_test.shape)
+        y_test = pre_emphasis_filter(torch.tensor(y_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_test.shape)
+
+
+    #Normalization: normalize the whole data the same way, so that dynamic range is fully used  both in and output uses range -1 to +1
+    x_complete = np.concatenate((x_train,x_test))
+    y_complete= np.concatenate((y_train,y_test))
+    
+    x_max = x_complete.max()
+    y_max = y_complete.max()
+
+    #transform data between -1 and 1
+    x_train = x_train/x_max
+    y_train = y_train/y_max
+
+    x_test = x_test/x_max
+    y_test = y_test/y_max   
+    
+    #MULTICHANNEL
+    n_input_channels = 1
+    if args.dataset in ["PEDALNET_CH12","PEDALNET2_CH12"]:
+        n_input_channels = 12
+    elif args.dataset in ["PEDALNET_CH16","PEDALNET2_CH16"]:
+        n_input_channels = 16
+    elif args.dataset in ["PEDALNET_CH24","PEDALNET2_CH24"]:
+        n_input_channels = 24
+    elif args.dataset in ["PEDALNET_CH32","PEDALNET2_CH32"]:
+        n_input_channels = 32
+    elif args.dataset in ["PEDALNET_CH64","PEDALNET2_CH64"]:
+        n_input_channels = 64
+    x_test = np.repeat(x_test,n_input_channels,axis=1)
+
+
+    #quantization
+    quantize = True
+    if not args.dataset=="PEDALNET_FLOAT" and quantize:
+        # DITHERING
+        print("dither pdf:",args.dither_pdf,"dither std:",args.dither_std,"dither order:",args.dither_order,"dither hicutoff:",args.dither_hicutoff)
+        if args.dither_std > 0:
+            x_test = x_test + create_dithering_noise(x_test.shape,sr,args.dither_std,args.dither_hicutoff,args.dither_order,args.dither_pdf)
+
+        x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
+        #y_test = (y_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
+
+    
+    #take only first n_samples
+    if n_samples is not None:
+        x_test = x_test[:n_samples]
+        y_test = y_test[:n_samples]
+        x_test_orig = x_test_orig[:n_samples]
+        y_test_orig = y_test_orig[:n_samples]
+
+    prev_sample = np.concatenate((np.zeros_like(x_test[0:1]), x_test[:-1]), axis=0)
+    pad_x_test = np.concatenate((prev_sample, x_test), axis=2)
+
+    #print("x_test shape ",x_test.shape)
+    #print("pad_x_test shape",pad_x_test.shape)
+    #plt.plot(x_test.flatten()[100:200])
+    
+    dataset_inf = {}
+    dataset_inf['sampling_rate'] = sr
+    dataset_inf['x_max'] = x_max
+    dataset_inf['y_max'] = y_max
+    dataset_inf['x_max_orig'] = x_max_orig
+    dataset_inf['y_max_orig'] = y_max_orig
+    dataset_inf['x_test'] = x_test
+    dataset_inf['y_test'] = y_test
+    dataset_inf['x_test_orig'] = x_test_orig
+    dataset_inf['y_test_orig'] = y_test_orig
+
+    dataset_inf['pad_x_test'] = pad_x_test
+
+
+    return dataset_inf
+
+
+#---------------------------
+#PREDICTION AND EVALUATION
+#---------------------------
+
+def evaluate_model(model_path,sampling_rate=44100):
+    """
+    Evaluate quantized (_qat_best_q.pth.tar) model in log folder "model_path", and store results in that folder
+    Args:   
+        model_path: path of the log folder with model inside (_qat_best_q.pth.tar) (ending with slash)
+        sampling_rate: the sampling rate of the training audio
+    """
+
+    n_samples = None
+    act_mode_8bit = True
+    y_pred_qat,dataset_inf,ckpt_inf,args = predict_test_set(model_path,act_mode_8bit,n_samples,sampling_rate)
+    y_test = dataset_inf["y_test"]
+
+    (y_test_filt,y_pred_qat_filt) = de_emphasize(y_pred_qat,dataset_inf,args)
+    scores_dict = get_scores(y_test,y_test_filt,y_pred_qat,y_pred_qat_filt,ckpt_inf,args,sampling_rate)
+
+    print("---CHKPT INFO---")
+    print("Epoch QAT:",scores_dict['epoch_qat'])
+
+    decimals = 5
+    print("\n---PRE-FILTERED SIGNAL PERFORMANCE---")
+    print("Error to signal, with pre-filter used in training")
+    print("  QAT   :",np.around(scores_dict['ESR_train'],decimals))
+
+    print("\n---DE-FILTERED SIGNAL PERFORMANCE---")
+    print("Error to signal, with pre-filter")
+    print("  QAT   :",np.around(scores_dict['ESR_prefilt'],decimals))
+
+    print("Error to signal, no pre-filter")
+    print("  QAT   :",np.around(scores_dict['ESR_nofilt'],decimals))
+
+    print("Error to signal, with A-Weighting pre-filter")
+    print("  QAT   :",np.around(scores_dict['ESR_aweight'],decimals))
+
+    print("Error to signal, with lowpassed A-Weighting pre-filter")
+    print("  QAT   :",np.around(scores_dict['ESR_laweight'],decimals))
+
+
+def predict_test_set(model_path,act_mode_8bit,n_samples=None,sampling_rate=44100,model_name=None):
+    """
+    Load and predict test set for quantized model (qat_best_q) or nonquantized (qat_best) in the given folder
+    Args:
+        model_path: path of the log folder with model inside (_qat_best_q.pth.tar or _qat_best.pth.tar) (ending with slash)
+        act_mode_8bit: if True simulate 8 bits (automatically load _q model) else load nonquanzied model
+        model_name: if none use default (_qat_best_q.pth.tar or _qat_best.pth.tar), else use specific name
+
+    Returns:
+        (y_pred_qat,dataset_inf,ckpt_inf,args)
+            y_pred_qat: prediction on test set (numpy array 3 dim)
+            dataset_inf: dict containing dataset informations, no time to write doc..
+            ckpt_inf: dict containing checkpoint information, no time to write doc...
+            args: loaded args used to train
+    """
+    if model_name is None:
+        load_model_path_qat = model_path+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1].split("\\")[-2]+"_qat_best.pth.tar"
+        if act_mode_8bit:
+            load_model_path_qat = model_path+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1].split("\\")[-2]+"_qat_best_q.pth.tar"
+    else:
+        load_model_path_qat = model_path+model_name
+        
+    
+    args = load_args(model_path,act_mode_8bit)  
+    model_qat = load_model(load_model_path_qat,args,act_mode_8bit)
+    
+    #checkpont inf
+    ckpt_inf = {}
+    checkpoint_qat = torch.load(load_model_path_qat,map_location=torch.device('cpu'))
+    ckpt_inf["epoch_qat"] = checkpoint_qat["epoch"]
+    ckpt_inf["folder_path"] = model_path
+    
+    #prepare dataset
+    dataset_inf = prepare_test_set(args,n_samples,sampling_rate)
+    
+    #predict QAT (either 8 bits quantized model, or normal float)
+    set_8bit_mode(act_mode_8bit,args)
+    input_scaling = 1.
+    output_scaling = 1.
+    if act_mode_8bit:
+        input_scaling = 128.
+        output_scaling = 2**15
+        
+    pad_x_test_qat = dataset_inf['pad_x_test']*input_scaling
+    y_pred_qat = []
+    for x in np.array_split(pad_x_test_qat, 10):
+        #y_pred_qat.append(model_qat(torch.from_numpy(x)).detach().numpy()*0.5)
+        y_pred_qat.append(model_qat(torch.from_numpy(x)).detach().numpy()/output_scaling)
+        
+    y_pred_qat = np.concatenate(y_pred_qat)
+    y_pred_qat = y_pred_qat[:,  :, -dataset_inf['y_test'].shape[2] :]
+    
+    return y_pred_qat,dataset_inf,ckpt_inf,args
+
+def de_emphasize(y_pred_qat,dataset_inf,args):
+    """
+    Get target and prediction in de emphasized form
+    Args:
+        y_pred_qat_filt: NOT de-filtered (qat) prediction (numpy array 3 dim)   
+        args: cmdline training script args
+    Return: (y_test_filt,y_pred_qat_filt)
+    """
+    y_test = dataset_inf["y_test"]
+    x_test = dataset_inf["x_test"]
+    x_max_orig = dataset_inf["x_max_orig"]
+    y_max_orig = dataset_inf["y_max_orig"]
+    x_max = dataset_inf["x_max"]
+    y_max = dataset_inf["y_max"]
+    
+    if args.preprocess_filter>0:
+        filter_coeff = args.preprocess_filter    
+        y_test_filt = dataset_inf['y_test_orig'] #already normalized
+        y_pred_qat_filt = de_emphasis_filter(y_pred_qat.flatten(),filter_coeff).reshape(y_pred_qat.shape)
+        
+        #renormalize (no effect on score, since ESR is normalized by y_test)
+        y_pred_qat_filt = y_pred_qat_filt*(y_max/y_max_orig)
+    else:
+        y_test_filt = y_test
+        y_pred_qat_filt = y_pred_qat
+    
+    return (y_test_filt,y_pred_qat_filt)
+
+def get_scores(y_test,y_test_filt,y_pred_qat,y_pred_qat_filt,ckpt_info,args,sr=44100):
+    """
+    Compute scores, return dict with all infos
+    Args:   
+        y_test: pre-filtered targed (numpy array 3 dim)
+        y_test_filt: de-filtered (original!) targed (numpy array 3 dim)
+        y_pred_qat: pre-filtered (qat) prediction (numpy array 3 dim)
+        y_pred_qat_filt: de-filtered (qat) prediction (numpy array 3 dim)
+        ckpt_info: dict with additional ceckpoint info. Keys:
+            epoch_qat: checkpoint epoch   
+        args: cmdline training script args
+    """
+    #hyperparameters
+    regularizer=1e-10
+    
+    scores_dict = {}
+    
+    #checkpoint info
+    scores_dict["epoch_qat"] = ckpt_info['epoch_qat']
+    
+    #Error to signal, with same conditions as during training: pre-filtered signals and  pre-filter as defined in args
+    pre_filter_coeff=args.pre_filter_coeff
+    ESR_train = error_to_signal(torch.tensor(y_test).reshape(1,1,-1),torch.tensor(y_pred_qat).reshape(1,1,-1),pre_filter_coeff,regularizer).mean().numpy()
+    scores_dict["ESR_train"] = ESR_train
+    
+    
+    #Error to signal, with pre-filter 0.95
+    pre_filter_coeff=0.95
+    ESR_prefilt = error_to_signal(torch.tensor(y_test_filt).reshape(1,1,-1),torch.tensor(y_pred_qat_filt).reshape(1,1,-1),pre_filter_coeff,regularizer).mean().numpy()
+    scores_dict["ESR_prefilt"] = ESR_prefilt
+    
+    #Error to signal, no pre-filter
+    ESR_nofilt = error_to_signal(torch.tensor(y_test_filt).reshape(1,1,-1),torch.tensor(y_pred_qat_filt).reshape(1,1,-1),0,regularizer,).mean().numpy()
+    scores_dict["ESR_nofilt"] = ESR_nofilt
+    
+    #Error to signal, with A-Weighting pre-filter
+    ESR_aweight = error_to_signal_aweight(y_test_filt.reshape(1,1,-1),torch.tensor(y_pred_qat_filt).reshape(1,1,-1),sr).mean().numpy()
+    scores_dict["ESR_aweight"] = ESR_aweight
+    
+    #Error to signal, with lowpassed A-Weighting pre-filter
+    ESR_laweight = error_to_signal_lowpass_aweight(y_test_filt.reshape(1,1,-1),torch.tensor(y_pred_qat_filt).reshape(1,1,-1),sr).mean().numpy()
+    scores_dict["ESR_laweight"] = ESR_laweight
+    
+    return scores_dict
+
+
