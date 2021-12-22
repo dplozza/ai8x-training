@@ -29,6 +29,7 @@ import pickle
 from matplotlib import pyplot as plt
 import json
 import argparse
+from scipy.io import wavfile
 
 # TensorFlow 2.x compatibility
 try:
@@ -357,12 +358,13 @@ def prepare_test_set(args,n_samples=None,sr=44100,dither_zeros=True):
 #PREDICTION AND EVALUATION
 #---------------------------
 
-def evaluate_model(model_path,sampling_rate=44100):
+def evaluate_model(model_path,sampling_rate=44100,save_seconds=10):
     """
     Evaluate quantized (_qat_best_q.pth.tar) model in log folder "model_path", and store results in that folder
     Args:   
         model_path: path of the log folder with model inside (_qat_best_q.pth.tar) (ending with slash)
         sampling_rate: the sampling rate of the training audio
+        save_samples: number of predicted audio seconds to save, if none save all
     """
 
     n_samples = None
@@ -373,26 +375,34 @@ def evaluate_model(model_path,sampling_rate=44100):
     (y_test_filt,y_pred_qat_filt) = de_emphasize(y_pred_qat,dataset_inf,args)
     scores_dict = get_scores(y_test,y_test_filt,y_pred_qat,y_pred_qat_filt,ckpt_inf,args,sampling_rate)
 
-    print("---CHKPT INFO---")
-    print("Epoch QAT:",scores_dict['epoch_qat'])
-
+    #save data in human readable txt
     decimals = 5
-    print("\n---PRE-FILTERED SIGNAL PERFORMANCE---")
-    print("Error to signal, with pre-filter used in training")
-    print("  QAT   :",np.around(scores_dict['ESR_train'],decimals))
+    with open(model_path+'/score.txt', 'w') as f:
+            f.write('Best epoch:   ' + str(scores_dict['epoch_qat']) + '\n')
+            f.write('ESR_train:    ' + str(round(scores_dict['ESR_train'], decimals)) + '\n')
+            f.write('ESR_prefilt:  ' + str(round(scores_dict['ESR_prefilt'], decimals)) + '\n')
+            f.write('ESR_nofilt:   ' + str(round(scores_dict['ESR_nofilt'], decimals)) + '\n')
+            f.write('ESR_aweight:  ' + str(round(scores_dict['ESR_aweight'], decimals)) + '\n')
+            f.write('ESR_laweight: ' + str(round(scores_dict['ESR_laweight'], decimals)) + '\n')
 
-    print("\n---DE-FILTERED SIGNAL PERFORMANCE---")
-    print("Error to signal, with pre-filter")
-    print("  QAT   :",np.around(scores_dict['ESR_prefilt'],decimals))
+    #save dict as jason
+    json.dump( scores_dict, open(model_path+"/score.json", 'w' ) )
+    json.load(open(model_path+"/score.json", 'r' ))
 
-    print("Error to signal, no pre-filter")
-    print("  QAT   :",np.around(scores_dict['ESR_nofilt'],decimals))
+    #create and save plots
+    plot_signals(y_test_filt,y_pred_qat_filt,dataset_inf,scores_dict,model_path)
 
-    print("Error to signal, with A-Weighting pre-filter")
-    print("  QAT   :",np.around(scores_dict['ESR_aweight'],decimals))
+    #save predicted samples
+    save_audio(y_pred_qat_filt,save_seconds,sampling_rate,model_path)
 
-    print("Error to signal, with lowpassed A-Weighting pre-filter")
-    print("  QAT   :",np.around(scores_dict['ESR_laweight'],decimals))
+    #print('\n')
+    print('Best epoch:   ' + str(scores_dict['epoch_qat']))
+    print('ESR_train:    ' + str(round(scores_dict['ESR_train'], decimals)))
+    print('ESR_prefilt:  ' + str(round(scores_dict['ESR_prefilt'], decimals)))
+    print('ESR_nofilt:   ' + str(round(scores_dict['ESR_nofilt'], decimals)))
+    print('ESR_aweight:  ' + str(round(scores_dict['ESR_aweight'], decimals)))
+    print('ESR_laweight: ' + str(round(scores_dict['ESR_laweight'], decimals)))
+    #print('\n')
 
 
 def predict_test_set(model_path,act_mode_8bit,n_samples=None,sampling_rate=44100,model_name=None):
@@ -496,30 +506,103 @@ def get_scores(y_test,y_test_filt,y_pred_qat,y_pred_qat_filt,ckpt_info,args,sr=4
     
     #checkpoint info
     scores_dict["epoch_qat"] = ckpt_info['epoch_qat']
+    scores_dict["sampling_rate"] = sr
+    scores_dict["predicted_samples"] = y_test.flatten().size
     
     #Error to signal, with same conditions as during training: pre-filtered signals and  pre-filter as defined in args
     pre_filter_coeff=args.pre_filter_coeff
     ESR_train = error_to_signal(torch.tensor(y_test).reshape(1,1,-1),torch.tensor(y_pred_qat).reshape(1,1,-1),pre_filter_coeff,regularizer).mean().numpy()
-    scores_dict["ESR_train"] = ESR_train
-    
+    scores_dict["ESR_train"] = float(ESR_train)
     
     #Error to signal, with pre-filter 0.95
     pre_filter_coeff=0.95
     ESR_prefilt = error_to_signal(torch.tensor(y_test_filt).reshape(1,1,-1),torch.tensor(y_pred_qat_filt).reshape(1,1,-1),pre_filter_coeff,regularizer).mean().numpy()
-    scores_dict["ESR_prefilt"] = ESR_prefilt
+    scores_dict["ESR_prefilt"] = float(ESR_prefilt)
     
     #Error to signal, no pre-filter
     ESR_nofilt = error_to_signal(torch.tensor(y_test_filt).reshape(1,1,-1),torch.tensor(y_pred_qat_filt).reshape(1,1,-1),0,regularizer,).mean().numpy()
-    scores_dict["ESR_nofilt"] = ESR_nofilt
+    scores_dict["ESR_nofilt"] = float(ESR_nofilt)
     
     #Error to signal, with A-Weighting pre-filter
     ESR_aweight = error_to_signal_aweight(y_test_filt.reshape(1,1,-1),torch.tensor(y_pred_qat_filt).reshape(1,1,-1),sr).mean().numpy()
-    scores_dict["ESR_aweight"] = ESR_aweight
+    scores_dict["ESR_aweight"] = float(ESR_aweight)
     
     #Error to signal, with lowpassed A-Weighting pre-filter
     ESR_laweight = error_to_signal_lowpass_aweight(y_test_filt.reshape(1,1,-1),torch.tensor(y_pred_qat_filt).reshape(1,1,-1),sr).mean().numpy()
-    scores_dict["ESR_laweight"] = ESR_laweight
+    scores_dict["ESR_laweight"] = float(ESR_laweight)
     
     return scores_dict
 
 
+def save_audio(y_pred_qat_filt,save_seconds,sr,model_path):
+    """Stores first save_samples of y_pred_qat_filt numpy array as audio
+    Args:
+        save_samples: number of predicted audio seconds to save, if none save all
+    """
+    if save_seconds is None:
+        save_samples = y_pred_qat_filt.flatten().size
+    else:
+        save_samples = int(save_seconds*sr)
+    
+    wavfile.write(model_path+"/y_pred.wav", sr, y_pred_qat_filt.flatten()[:save_samples].astype(np.float32))
+
+    
+
+def plot_signals(y_test_filt,y_pred_qat_filt,dataset_inf,scores_dict,model_path):
+
+    y_test_filt_flat = y_test_filt.flatten()
+    y_pred_qat_filt_flat = y_pred_qat_filt.flatten()
+    x_test_orig = dataset_inf['x_test_orig'].flatten()
+    sr = dataset_inf['sampling_rate']
+
+
+    Time = np.linspace(0, len(y_test_filt_flat) / sr, num=len(y_test_filt_flat))
+    fig, (ax3, ax1, ax2) = plt.subplots(3, sharex=True, figsize=(14, 10))
+    fig.suptitle("Predicted vs Actual Signal")
+    ax1.plot(Time, y_test_filt_flat, label="reference", color="red")
+
+    Time2 = np.linspace(0, len(y_pred_qat_filt_flat) / sr, num=len(y_pred_qat_filt_flat))
+    ax1.plot(Time2, y_pred_qat_filt_flat, label="prediction", color="green")
+    ax1.legend(loc="upper right")
+    ax1.set_xlabel("Time (s)")
+    ax1.set_ylabel("Amplitude")
+    ax1.set_title("Wav File Comparison")
+    ax1.grid("on")
+
+
+    fig.suptitle("Predicted vs Actual Signal (ESR: " + str(round(scores_dict['ESR_nofilt'], 4)) + ")")
+    # Plot signal difference
+    signal_diff = y_test_filt_flat - y_pred_qat_filt_flat
+    ax2.plot(Time2, np.abs(signal_diff), label="signal diff", color="blue")
+    ax2.set_xlabel("Time (s)")
+    ax2.set_ylabel("Amplitude")
+    ax2.set_title("abs(pred_signal-actual_signal)")
+    ax2.grid("on")
+
+
+    # Plot the original signal
+    Time3 = np.linspace(0, len(x_test_orig) / sr, num=len(x_test_orig))
+    ax3.plot(Time3, x_test_orig, label="input", color="purple")
+    ax3.legend(loc="upper right")
+    ax3.set_xlabel("Time (s)")
+    ax3.set_ylabel("Amplitude")
+    ax3.set_title("Original Input")
+    ax3.grid("on")
+
+    # Save the plot
+    plt.savefig(model_path + "/signal_comparison_esr_" + str(round(scores_dict['ESR_nofilt'], 4)) + ".png", facecolor="white", edgecolor='none',bbox_inches="tight")
+
+    # Create a zoomed in plot of 0.01 seconds centered at the max input signal value
+    sig_temp = x_test_orig.tolist()
+    plt.axis(
+        [
+            Time3[sig_temp.index((max(sig_temp)))] - 0.005,
+            Time3[sig_temp.index((max(sig_temp)))] + 0.005,
+            min(y_pred_qat_filt_flat),
+            max(y_pred_qat_filt_flat),
+        ]
+    )
+
+    # Save the plot
+    plt.savefig(model_path + "/detail_signal_comparison_esr_" + str(round(scores_dict['ESR_nofilt'], 4)) + ".png",facecolor="white", edgecolor='none', bbox_inches="tight")
+    
