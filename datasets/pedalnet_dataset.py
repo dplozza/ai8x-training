@@ -286,7 +286,7 @@ datasets = datasets + [
 ]
 
 wavedatafile = "fuzz"
-name = 'fuzz'
+name = 'FUZZ'
 datasets = datasets + [
     {
         'name': 'PEDALNET'+name,
@@ -339,7 +339,7 @@ datasets = datasets + [
 ]
 
 wavedatafile = "dist"
-name = 'dist'
+name = 'DIST'
 datasets = datasets + [
     {
         'name': 'PEDALNET'+name,
@@ -392,7 +392,7 @@ datasets = datasets + [
 ]
 
 wavedatafile = "ampli_cab_1"
-name = 'ampcab_1'
+name = 'AMPCAB1'
 datasets = datasets + [
     {
         'name': 'PEDALNET'+name,
