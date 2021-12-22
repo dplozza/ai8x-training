@@ -82,7 +82,7 @@ def load_args(model_log_path,act_mode_8bit=False):
     cmd_line_args = "--model ai85net5 --dataset MNIST"
     args = parsecmd.get_parser(model_names, dataset_names).parse_args(cmd_line_args.split())
 
-    with open(model_log_path+'configs\\commandline_args.txt', 'r') as f:
+    with open(model_log_path+'\\configs\\commandline_args.txt', 'r') as f:
         loaded_args = json.load(f)
     args.num_hidden_channels = loaded_args["num_hidden_channels"]
     print("num hidden channels",args.num_hidden_channels)
@@ -252,6 +252,12 @@ def prepare_test_set(args,n_samples=None,sr=44100,dither_zeros=True):
         data = pickle.load(open("data/PEDALNET/ts9_test1_FP32.pickle", "rb"))
     elif args.dataset in ["PEDALNET2","PEDALNET2_CH12","PEDALNET2_CH16","PEDALNET2_CH24","PEDALNET2_CH32"]:
         data = pickle.load(open("data/PEDALNET/ts9_test2_sz512.pickle", "rb"))
+    elif args.dataset in ["PEDALNET_FUZZ","PEDALNET_FUZZ_CH12","PEDALNET_FUZZ_CH16","PEDALNET_FUZZ_CH24","PEDALNET_FUZZ_CH32"]:
+        data = pickle.load(open("data/PEDALNET/fuzz.pickle", "rb"))
+    elif args.dataset in ["PEDALNET_DIST","PEDALNET_DIST_CH12","PEDALNET_DIST_CH16","PEDALNET_DIST_CH24","PEDALNET_DIST_CH32"]:
+        data = pickle.load(open("data/PEDALNET/dist.pickle", "rb"))
+    elif args.dataset in ["PEDALNET_AMPCAB1","PEDALNET_AMPCAB1_CH12","PEDALNET_AMPCAB1_CH16","PEDALNET_AMPCAB1_CH24","PEDALNET_AMPCAB1_CH32"]:
+        data = pickle.load(open("data/PEDALNET/ampli_cab_1.pickle", "rb"))
     elif args.dataset in ["PEDALNET_15XOS","PEDALNET_15XOS_FLOAT"]:
         data = pickle.load(open("data/AUDIO/data_1.5xos.pickle", "rb"))
     elif args.dataset in ["PEDALNET_2XOS","PEDALNET_2XOS_FLOAT"]:
@@ -298,16 +304,19 @@ def prepare_test_set(args,n_samples=None,sr=44100,dither_zeros=True):
     
     #MULTICHANNEL
     n_input_channels = 1
-    if args.dataset in ["PEDALNET_CH12","PEDALNET2_CH12"]:
-        n_input_channels = 12
-    elif args.dataset in ["PEDALNET_CH16","PEDALNET2_CH16"]:
-        n_input_channels = 16
-    elif args.dataset in ["PEDALNET_CH24","PEDALNET2_CH24"]:
-        n_input_channels = 24
-    elif args.dataset in ["PEDALNET_CH32","PEDALNET2_CH32"]:
-        n_input_channels = 32
-    elif args.dataset in ["PEDALNET_CH64","PEDALNET2_CH64"]:
-        n_input_channels = 64
+    
+    if len(args.dataset.split("CH"))>1:
+        n_input_channels =  int(args.dataset.split("CH")[-1])
+    # if args.dataset in ["PEDALNET_CH12","PEDALNET2_CH12"]:
+    #     n_input_channels = 12
+    # elif args.dataset in ["PEDALNET_CH16","PEDALNET2_CH16"]:
+    #     n_input_channels = 16
+    # elif args.dataset in ["PEDALNET_CH24","PEDALNET2_CH24"]:
+    #     n_input_channels = 24
+    # elif args.dataset in ["PEDALNET_CH32","PEDALNET2_CH32"]:
+    #     n_input_channels = 32
+    # elif args.dataset in ["PEDALNET_CH64","PEDALNET2_CH64"]:
+    #     n_input_channels = 64
     x_test = np.repeat(x_test,n_input_channels,axis=1)
 
 
@@ -377,7 +386,7 @@ def evaluate_model(model_path,sampling_rate=44100,save_seconds=10):
 
     #save data in human readable txt
     decimals = 5
-    with open(model_path+'/score.txt', 'w') as f:
+    with open(model_path+'\\score.txt', 'w') as f:
             f.write('Best epoch:   ' + str(scores_dict['epoch_qat']) + '\n')
             f.write('ESR_train:    ' + str(round(scores_dict['ESR_train'], decimals)) + '\n')
             f.write('ESR_prefilt:  ' + str(round(scores_dict['ESR_prefilt'], decimals)) + '\n')
@@ -386,8 +395,8 @@ def evaluate_model(model_path,sampling_rate=44100,save_seconds=10):
             f.write('ESR_laweight: ' + str(round(scores_dict['ESR_laweight'], decimals)) + '\n')
 
     #save dict as jason
-    json.dump( scores_dict, open(model_path+"/score.json", 'w' ) )
-    json.load(open(model_path+"/score.json", 'r' ))
+    json.dump( scores_dict, open(model_path+"\\score.json", 'w' ) )
+    #json.load(open(model_path+"\\score.json", 'r' ))
 
     #create and save plots
     plot_signals(y_test_filt,y_pred_qat_filt,dataset_inf,scores_dict,model_path)
@@ -409,7 +418,7 @@ def predict_test_set(model_path,act_mode_8bit,n_samples=None,sampling_rate=44100
     """
     Load and predict test set for quantized model (qat_best_q) or nonquantized (qat_best) in the given folder
     Args:
-        model_path: path of the log folder with model inside (_qat_best_q.pth.tar or _qat_best.pth.tar) (ending with slash)
+        model_path: path of the log folder with model inside (_qat_best_q.pth.tar or _qat_best.pth.tar) (ending with NO slash)
         act_mode_8bit: if True simulate 8 bits (automatically load _q model) else load nonquanzied model
         model_name: if none use default (_qat_best_q.pth.tar or _qat_best.pth.tar), else use specific name
 
@@ -421,11 +430,11 @@ def predict_test_set(model_path,act_mode_8bit,n_samples=None,sampling_rate=44100
             args: loaded args used to train
     """
     if model_name is None:
-        load_model_path_qat = model_path+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1].split("\\")[-2]+"_qat_best.pth.tar"
+        load_model_path_qat = model_path+"\\"+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1]+"_qat_best.pth.tar"
         if act_mode_8bit:
-            load_model_path_qat = model_path+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1].split("\\")[-2]+"_qat_best_q.pth.tar"
+            load_model_path_qat = model_path+"\\"+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1]+"_qat_best_q.pth.tar"
     else:
-        load_model_path_qat = model_path+model_name
+        load_model_path_qat = model_path +"\\"+model_name
         
     
     args = load_args(model_path,act_mode_8bit)  
@@ -544,7 +553,7 @@ def save_audio(y_pred_qat_filt,save_seconds,sr,model_path):
     else:
         save_samples = int(save_seconds*sr)
     
-    wavfile.write(model_path+"/y_pred.wav", sr, y_pred_qat_filt.flatten()[:save_samples].astype(np.float32))
+    wavfile.write(model_path+"\\y_pred.wav", sr, y_pred_qat_filt.flatten()[:save_samples].astype(np.float32))
 
     
 
@@ -590,7 +599,7 @@ def plot_signals(y_test_filt,y_pred_qat_filt,dataset_inf,scores_dict,model_path)
     ax3.grid("on")
 
     # Save the plot
-    plt.savefig(model_path + "/signal_comparison_esr_" + str(round(scores_dict['ESR_nofilt'], 4)) + ".png", facecolor="white", edgecolor='none',bbox_inches="tight")
+    plt.savefig(model_path + "\\signal_comparison_esr_" + str(round(scores_dict['ESR_nofilt'], 4)) + ".png", facecolor="white", edgecolor='none',bbox_inches="tight")
 
     # Create a zoomed in plot of 0.01 seconds centered at the max input signal value
     sig_temp = x_test_orig.tolist()
@@ -604,5 +613,5 @@ def plot_signals(y_test_filt,y_pred_qat_filt,dataset_inf,scores_dict,model_path)
     )
 
     # Save the plot
-    plt.savefig(model_path + "/detail_signal_comparison_esr_" + str(round(scores_dict['ESR_nofilt'], 4)) + ".png",facecolor="white", edgecolor='none', bbox_inches="tight")
+    plt.savefig(model_path + "\\detail_signal_comparison_esr_" + str(round(scores_dict['ESR_nofilt'], 4)) + ".png",facecolor="white", edgecolor='none', bbox_inches="tight")
     
