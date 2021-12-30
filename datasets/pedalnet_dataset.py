@@ -224,6 +224,14 @@ datasets = [
         'regression': True 
     },
     {
+        'name': 'PEDALNET_CH20',
+        'input': (20, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(20,wavedatafile),
+        'regression': True 
+    },
+    {
         'name': 'PEDALNET_CH24',
         'input': (24, sample_size), #1 channel and 1D
         #'output': list(map(str, range(10))), labels: only for NOT regression
@@ -289,6 +297,14 @@ datasets = datasets + [
         #'output': list(map(str, range(10))), labels: only for NOT regression
         'output': [1], #WHY do I need to put this shit here...
         'loader': pedalnet_get_datasets_func(16,wavedatafile),
+        'regression': True 
+    },
+    {
+        'name': 'PEDALNET2_CH20',
+        'input': (20, sample_size), #1 channel and 1D
+        #'output': list(map(str, range(10))), labels: only for NOT regression
+        'output': [1], #WHY do I need to put this shit here...
+        'loader': pedalnet_get_datasets_func(20,wavedatafile),
         'regression': True 
     },
     {
