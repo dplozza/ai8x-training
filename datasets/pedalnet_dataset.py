@@ -95,10 +95,13 @@ def pedalnet_get_datasets(n_input_channels, wavedatafile,data, load_train=True, 
         filter_coeff = args.preprocess_filter
         x_train = pre_emphasis_filter(torch.tensor(x_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_train.shape)
         y_train = pre_emphasis_filter(torch.tensor(y_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_train.shape)
+        x_train[:,:,0] = x_train[:,:,1]
+        y_train[:,:,0] = y_train[:,:,1]
 
         x_test = pre_emphasis_filter(torch.tensor(x_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_test.shape)
         y_test = pre_emphasis_filter(torch.tensor(y_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_test.shape)
-
+        x_test[:,:,0] = x_test[:,:,1]
+        y_test[:,:,0] = y_test[:,:,1]
 
     #Normalization: normalize the whole data the same way, so that dynamic range is fully used 
     #both in and output uses range -1 to +1
