@@ -35,7 +35,7 @@ def create_dithering_noise(shape,sr,std,lowcut,order=1,pdf="normal"):
         shape: shape of the array
         sr: sampling rate
         std: in normal case, std deviation with respect to quant level, in triangualr case is max noise value
-        lowcut: cutoff freq of highpass filter on dithering noise
+        lowcut: cutoff freq of highpass filter on dithering noise. If lowcut==0, no filtering is applied
         order: order of highpass filter
         pdf: "triangular" or "normal"
     """
@@ -51,7 +51,8 @@ def create_dithering_noise(shape,sr,std,lowcut,order=1,pdf="normal"):
         raise Exception("Invalid noise pdf",pdf) 
     #noise shaping / dither filtering
     #dither_noise_2 = butter_highpass_filter(dither_noise_2, lowcut, sr, order=order)
-    dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
+    if lowcut>0:
+        dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
     return dither_noise.astype(np.float32)
 
 def pre_emphasis_filter(x, coeff=0.95):
