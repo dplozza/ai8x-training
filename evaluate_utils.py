@@ -118,7 +118,7 @@ def pre_emphasis_lowpass_aweight_filter(x,sr):
 #ESR LOSSES
 #------------
 
-def error_to_signal(y, y_pred,pre_filter_coeff,regularizer=1e-10,ignore_zeros=False,zero_treshold=1e-6):
+def error_to_signal(y, y_pred,pre_filter_coeff,regularizer=0,ignore_zeros=False,zero_treshold=1e-6):
     """
     Error to signal ratio with pre-emphasis filter:
     https://www.mdpi.com/2076-3417/10/3/766/htm
@@ -136,11 +136,11 @@ def error_to_signal(y, y_pred,pre_filter_coeff,regularizer=1e-10,ignore_zeros=Fa
         
     return (y - y_pred).pow(2).sum(dim=2) / (y.pow(2).sum(dim=2) + regularizer)
 
-def error_to_signal_aweight(y, y_pred,sr,regularizer=1e-10):
+def error_to_signal_aweight(y, y_pred,sr,regularizer=0):
     y, y_pred = pre_emphasis_aweight_filter(y,sr), pre_emphasis_aweight_filter(y_pred,sr)
     return error_to_signal(torch.tensor(y),torch.tensor(y_pred),pre_filter_coeff=0,regularizer=regularizer)
 
-def error_to_signal_lowpass_aweight(y, y_pred,sr,regularizer=1e-10):
+def error_to_signal_lowpass_aweight(y, y_pred,sr,regularizer=0):
     y, y_pred = pre_emphasis_lowpass_aweight_filter(y,sr), pre_emphasis_lowpass_aweight_filter(y_pred,sr)
     return error_to_signal(torch.tensor(y),torch.tensor(y_pred),pre_filter_coeff=0,regularizer=regularizer)
 
@@ -157,7 +157,7 @@ def create_dithering_noise(shape,sr,std,lowcut,order=1,pdf="normal"):
         shape: shape of the array
         sr: sampling rate
         std: in normal case, std deviation with respect to quant level, in triangualr case is max noise value
-        lowcut: cutoff freq of low pass filter on dithering noise
+        lowcut: cutoff freq of low pass filter on dithering noise, if 0 no filtering is done
         pdf: "triangular" or "normal"
     """
     # dithering noise (gaussian psd)
@@ -172,5 +172,6 @@ def create_dithering_noise(shape,sr,std,lowcut,order=1,pdf="normal"):
         raise Exception("Invalid noise pdf",pdf) 
     #noise shaping / dither filtering
     #dither_noise_2 = butter_highpass_filter(dither_noise_2, lowcut, sr, order=order)
-    dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
+    if lowcut>0:
+        dither_noise = butter_highpass_filter(dither_noise, lowcut, sr, order=order)
     return dither_noise.astype(np.float32)

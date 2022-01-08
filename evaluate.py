@@ -247,16 +247,45 @@ def prepare_test_set(args,n_samples=None,sr=44100,dither_zeros=True):
         n_samples: if None, load all test samples, else load only first n_samples test samples
         dither_zeros: if true add dithering also to zeros. Else only add dithering to nonzero input values
     """
-    
-    if args.dataset in ["PEDALNET","PEDALNET_FLOAT","PEDALNET_CH12","PEDALNET_CH16","PEDALNET_CH24","PEDALNET_CH32"]:
+    try:
+        dataset_name = args.dataset.split("_CH")[-2]
+    except:
+        dataset_name =  args.dataset
+        
+    if dataset_name == "PEDALNET":
         data = pickle.load(open("data/PEDALNET/ts9_test1_FP32.pickle", "rb"))
-    elif args.dataset in ["PEDALNET2","PEDALNET2_CH12","PEDALNET2_CH16","PEDALNET2_CH24","PEDALNET2_CH32"]:
+    elif dataset_name == "PEDALNET2":
         data = pickle.load(open("data/PEDALNET/ts9_test2_sz512.pickle", "rb"))
-    elif args.dataset in ["PEDALNET_FUZZ","PEDALNET_FUZZ_CH12","PEDALNET_FUZZ_CH16","PEDALNET_FUZZ_CH24","PEDALNET_FUZZ_CH32"]:
+    elif dataset_name == "PEDALNET_BIGMUFF1":
+        data = pickle.load(open("data/PEDALNET/big_muff_1.pickle", "rb"))
+    elif dataset_name == "PEDALNET_TUBECLONE_BG": 
+        data = pickle.load(open("data/PEDALNET/tube_clone_bassguitar.pickle", "rb"))
+    elif dataset_name == "PEDALNET_TUBECLONE_G": 
+        data = pickle.load(open("data/PEDALNET/tube_clone_guitar.pickle", "rb"))
+    elif dataset_name == "PEDALNET_TUBECLONE_GSK":    
+        data = pickle.load(open("data/PEDALNET/tube_clone_guitar_sk.pickle", "rb"))
+
+    elif dataset_name == "PEDALNET_TS808_G": 
+        data = pickle.load(open("data/PEDALNET/ts808_guitar.pickle", "rb"))
+    elif dataset_name == "PEDALNET_TS808_GSK": 
+        data = pickle.load(open("data/PEDALNET/ts808_guitar_sk.pickle", "rb"))
+
+    elif dataset_name == "PEDALNET_GLOVE_G": 
+        data = pickle.load(open("data/PEDALNET/glove_guitar.pickle", "rb"))
+    elif dataset_name == "PEDALNET_GLOVE_GSK": 
+        data = pickle.load(open("data/PEDALNET/glove_guitar_sk.pickle", "rb"))
+
+    elif dataset_name == "PEDALNET_BIGMUFF_G": 
+        data = pickle.load(open("data/PEDALNET/big_muff_pi_guitar.pickle", "rb"))
+    elif dataset_name == "PEDALNET_BIGMUFF_GSK": 
+        data = pickle.load(open("data/PEDALNET/big_muff_pi_guitar_sk.pickle", "rb"))
+
+
+    elif dataset_name == "PEDALNET_FUZZ":
         data = pickle.load(open("data/PEDALNET/fuzz.pickle", "rb"))
-    elif args.dataset in ["PEDALNET_DIST","PEDALNET_DIST_CH12","PEDALNET_DIST_CH16","PEDALNET_DIST_CH24","PEDALNET_DIST_CH32"]:
+    elif dataset_name == "PEDALNET_DIST":
         data = pickle.load(open("data/PEDALNET/dist.pickle", "rb"))
-    elif args.dataset in ["PEDALNET_AMPCAB1","PEDALNET_AMPCAB1_CH12","PEDALNET_AMPCAB1_CH16","PEDALNET_AMPCAB1_CH24","PEDALNET_AMPCAB1_CH32"]:
+    elif dataset_name == "PEDALNET_AMPCAB1":
         data = pickle.load(open("data/PEDALNET/ampli_cab_1.pickle", "rb"))
     elif args.dataset in ["PEDALNET_15XOS","PEDALNET_15XOS_FLOAT"]:
         data = pickle.load(open("data/AUDIO/data_1.5xos.pickle", "rb"))
@@ -283,10 +312,16 @@ def prepare_test_set(args,n_samples=None,sr=44100,dither_zeros=True):
         filter_coeff = args.preprocess_filter
         x_train = pre_emphasis_filter(torch.tensor(x_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_train.shape)
         y_train = pre_emphasis_filter(torch.tensor(y_train.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_train.shape)
+        #assume sample batches are NOT consecutive: first sample of fir output is INVALID -> replace with second sample, for each sample!
+        #necessary to avoid high freq spikes (which interfere with the normalization)
+        x_train[:,:,0] = x_train[:,:,1]
+        y_train[:,:,0] = y_train[:,:,1]
 
         x_test = pre_emphasis_filter(torch.tensor(x_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(x_test.shape)
         y_test = pre_emphasis_filter(torch.tensor(y_test.reshape(1,1,-1)),filter_coeff).numpy().reshape(y_test.shape)
-
+        #test audio is assumed to be consecutive samples, we only have to correct fisrt sample of first batch
+        x_test[0,:,0] = x_test[0,:,1]
+        y_test[0,:,0] = y_test[0,:,1]
 
     #Normalization: normalize the whole data the same way, so that dynamic range is fully used  both in and output uses range -1 to +1
     x_complete = np.concatenate((x_train,x_test))
@@ -414,13 +449,15 @@ def evaluate_model(model_path,sampling_rate=44100,save_seconds=10):
     #print('\n')
 
 
-def predict_test_set(model_path,act_mode_8bit,n_samples=None,sampling_rate=44100,model_name=None):
+def predict_test_set(model_path,act_mode_8bit,n_samples=None,sampling_rate=44100,model_name=None,last_chkpt=False,dither_info=None):
     """
     Load and predict test set for quantized model (qat_best_q) or nonquantized (qat_best) in the given folder
     Args:
         model_path: path of the log folder with model inside (_qat_best_q.pth.tar or _qat_best.pth.tar) (ending with NO slash)
         act_mode_8bit: if True simulate 8 bits (automatically load _q model) else load nonquanzied model
         model_name: if none use default (_qat_best_q.pth.tar or _qat_best.pth.tar), else use specific name
+        last_chkpt: if true and model_name=None, use (_qat_checkpoint_q.pth.tar or _qat_checkpoint.pth.tar)
+        dither_info: can be used to force dithering if not None. Has to be a dict with fields [dither_std,dither_pdf,dither_oder,dither_hicutoff]
 
     Returns:
         (y_pred_qat,dataset_inf,ckpt_inf,args)
@@ -430,14 +467,25 @@ def predict_test_set(model_path,act_mode_8bit,n_samples=None,sampling_rate=44100
             args: loaded args used to train
     """
     if model_name is None:
-        load_model_path_qat = model_path+"\\"+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1]+"_qat_best.pth.tar"
-        if act_mode_8bit:
-            load_model_path_qat = model_path+"\\"+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1]+"_qat_best_q.pth.tar"
+        if last_chkpt:
+            load_model_path_qat = model_path+"\\"+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1]+"_qat_checkpoint.pth.tar"
+            if act_mode_8bit:
+                load_model_path_qat = model_path+"\\"+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1]+"_qat_checkpoint_q.pth.tar"
+        else:
+            load_model_path_qat = model_path+"\\"+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1]+"_qat_best.pth.tar"
+            if act_mode_8bit:
+                load_model_path_qat = model_path+"\\"+(re.split('(?:[0-9]+).(?:[0-9]+).(?:[0-9]+)-(?:[0-9]+)__', model_path))[-1]+"_qat_best_q.pth.tar"
     else:
         load_model_path_qat = model_path +"\\"+model_name
         
     
-    args = load_args(model_path,act_mode_8bit)  
+    args = load_args(model_path,act_mode_8bit)
+    if dither_info is not None:
+        args.dither_std  = dither_info["dither_std"]
+        args.dither_pdf = dither_info["dither_pdf"]
+        args.dither_order = dither_info["dither_order"]
+        args.dither_hicutoff = dither_info["dither_hicutoff"]
+
     model_qat = load_model(load_model_path_qat,args,act_mode_8bit)
     
     #checkpont inf
@@ -496,7 +544,7 @@ def de_emphasize(y_pred_qat,dataset_inf,args):
     
     return (y_test_filt,y_pred_qat_filt)
 
-def get_scores(y_test,y_test_filt,y_pred_qat,y_pred_qat_filt,ckpt_info,args,sr=44100):
+def get_scores(y_test,y_test_filt,y_pred_qat,y_pred_qat_filt,ckpt_info,args,sr=44100,regularizer=0):
     """
     Compute scores, return dict with all infos
     Args:   
@@ -509,7 +557,7 @@ def get_scores(y_test,y_test_filt,y_pred_qat,y_pred_qat_filt,ckpt_info,args,sr=4
         args: cmdline training script args
     """
     #hyperparameters
-    regularizer=1e-10
+    #regularizer=0 #1e-10
     
     scores_dict = {}
     
@@ -566,9 +614,10 @@ def plot_signals(y_test_filt,y_pred_qat_filt,dataset_inf,scores_dict,model_path)
 
 
     Time = np.linspace(0, len(y_test_filt_flat) / sr, num=len(y_test_filt_flat))
-    fig, (ax3, ax1, ax2) = plt.subplots(3, sharex=True, figsize=(14, 10))
+    fig, (ax3, ax1, ax2) = plt.subplots(3, sharex=True, figsize=(14, 8))
     fig.suptitle("Predicted vs Actual Signal")
     ax1.plot(Time, y_test_filt_flat, label="reference", color="red")
+    fig.tight_layout(pad=3.0)
 
     Time2 = np.linspace(0, len(y_pred_qat_filt_flat) / sr, num=len(y_pred_qat_filt_flat))
     ax1.plot(Time2, y_pred_qat_filt_flat, label="prediction", color="green")
