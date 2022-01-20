@@ -135,25 +135,37 @@ def pedalnet_get_datasets(n_input_channels, wavedatafile,data, load_train=True, 
 
     #new change: do NOT quantize reference values if not specified by quantize_target
     if args.act_mode_8bit:
-        x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)
+        if args.quantize_input:
+            x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)
+        else:
+            x_train = (x_train*0.5*256.).clip(min=-128, max=127)
         if args.quantize_target:
             y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1) # uses 24 bit to have some headroom
         else:
             y_train = (y_train*0.5*out_range) #.round().clip(min=-out_range//2, max=out_range//2-1) # uses 24 bit to have some headroom
 
-        x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)
+        if args.quantize_input:
+            x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)
+        else:
+            x_test = (x_test*0.5*256.).clip(min=-128, max=127)
         if args.quantize_target:
             y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)
         else:
             y_test = (y_test*0.5*out_range)
     else:
-        x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)/(128.)
+        if args.quantize_input:
+            x_train = (x_train*0.5*256.).round().clip(min=-128, max=127)/(128.)
+        else:
+            x_train = (x_train*0.5*256.).clip(min=-128, max=127)/(128.)
         if args.quantize_target:
             y_train = (y_train*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.)
         else:
             y_train = (y_train*0.5*out_range)/(128.)
 
-        x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
+        if args.quantize_input:
+            x_test = (x_test*0.5*256.).round().clip(min=-128, max=127)/(128.)
+        else:
+            x_test = (x_test*0.5*256.).clip(min=-128, max=127)/(128.)
         if args.quantize_target:
             y_test = (y_test*0.5*out_range).round().clip(min=-out_range//2, max=out_range//2-1)/(128.)
         else:
@@ -1419,6 +1431,7 @@ datasets = datasets + [
         'regression': True 
     },
 ]
+
 
 #BIGMUFF
 wavedatafile = "big_muff_pi_guitar"

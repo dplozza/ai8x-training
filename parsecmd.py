@@ -242,6 +242,7 @@ def get_parser(model_names, dataset_names):
     parser.add_argument("--kernel-size", type=int, default=3)
 
     parser.add_argument("--output-bitdepth",type=int, default=8,help='bidepth uses to quantize the output of regression')
+    parser.add_argument("--quantize-input", type=bool, default=True,help='If true quantize the input dataset')
     parser.add_argument("--quantize-target", action='store_true', default=False,help='If true quantize also the target dataset')
     parser.add_argument("--oversample",type=int,default=1,help='Only used for audio, oversampling of data (actually chooses which dataset to use)')
 
