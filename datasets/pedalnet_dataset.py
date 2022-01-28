@@ -120,6 +120,10 @@ def pedalnet_get_datasets(n_input_channels, wavedatafile,data, load_train=True, 
     x_test = x_test/x_complete.max()
     y_test = y_test/y_complete.max()
 
+    #custom scaling
+    x_train = x_train*args.xscale
+    x_test = x_test*args.xscale
+
     #DUPLICATE x_train and x_test to n_input_channels channels (then add dithering indipendently)
     if n_input_channels>1:
         x_train = np.repeat(x_train,n_input_channels,axis=1)
@@ -1357,7 +1361,7 @@ datasets = datasets + [
     },
 ]
 wavedatafile = "ds1_ib"
-name = '_DS+_IB'
+name = '_DS1_IB'
 datasets = datasets + [
     {
         'name': 'PEDALNET'+name,
